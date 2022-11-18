@@ -1,0 +1,18 @@
+include MANIFEST.in
+include requirements.txt
+include *.json
+include *.md
+include *.py
+include *.txt
+recursive-include frappe_mailjet *.css
+recursive-include frappe_mailjet *.csv
+recursive-include frappe_mailjet *.html
+recursive-include frappe_mailjet *.ico
+recursive-include frappe_mailjet *.js
+recursive-include frappe_mailjet *.json
+recursive-include frappe_mailjet *.md
+recursive-include frappe_mailjet *.png
+recursive-include frappe_mailjet *.py
+recursive-include frappe_mailjet *.svg
+recursive-include frappe_mailjet *.txt
+recursive-exclude frappe_mailjet *.pyc
