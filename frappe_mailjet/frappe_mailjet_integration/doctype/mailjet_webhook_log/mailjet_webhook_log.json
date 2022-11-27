@@ -1,0 +1,192 @@
+{
+ "actions": [],
+ "autoname": "hash",
+ "creation": "2022-11-25 17:00:02.712711",
+ "default_view": "List",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_1",
+  "event_type",
+  "email",
+  "campaign",
+  "column_break_5",
+  "mailjet_list_id",
+  "mailjet_id",
+  "stats_section",
+  "country",
+  "payload",
+  "blocked",
+  "column_break_11",
+  "url",
+  "section_break_15",
+  "error",
+  "error_title",
+  "hard_bounce",
+  "column_break_18",
+  "source",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_1",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "event_type",
+   "fieldtype": "Read Only",
+   "in_list_view": 1,
+   "label": "Event Type",
+   "no_copy": 1,
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "email",
+   "fieldtype": "Read Only",
+   "in_standard_filter": 1,
+   "label": "Email",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "campaign",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Campaign",
+   "no_copy": 1,
+   "options": "Mailjet Email Campaign",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_5",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Email Group Name == Contact List",
+   "fetch_from": "campaign.contact_list",
+   "fetch_if_empty": 1,
+   "fieldname": "mailjet_list_id",
+   "fieldtype": "Read Only",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Mailjet List ID"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "mailjet_id",
+   "fieldtype": "Read Only",
+   "in_standard_filter": 1,
+   "label": "Mailjet Contact ID",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "stats_section",
+   "fieldtype": "Section Break",
+   "label": "More Data"
+  },
+  {
+   "fieldname": "country",
+   "fieldtype": "Read Only",
+   "label": "Country",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "payload",
+   "fieldtype": "JSON",
+   "label": "Payload",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_11",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "url",
+   "fieldtype": "Read Only",
+   "label": "URL",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_15",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "error",
+   "fieldtype": "Code",
+   "label": "Error",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "error_title",
+   "fieldtype": "Read Only",
+   "label": "Error Title",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_18",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "source",
+   "fieldtype": "Read Only",
+   "label": "Source",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Mailjet Webhook Log",
+   "print_hide": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "blocked",
+   "fieldtype": "Read Only",
+   "label": "Blocked",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "hard_bounce",
+   "fieldtype": "Read Only",
+   "label": "Hard Bounce",
+   "no_copy": 1,
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2022-11-26 15:24:26.560509",
+ "modified_by": "Administrator",
+ "module": "Frappe Mailjet Integration",
+ "name": "Mailjet Webhook Log",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "email"
+}

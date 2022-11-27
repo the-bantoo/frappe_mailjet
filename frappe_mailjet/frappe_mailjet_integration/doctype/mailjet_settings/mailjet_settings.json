@@ -1,0 +1,118 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2022-11-18 08:34:02.551638",
+ "default_view": "List",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "credentials_section",
+  "api_key",
+  "column_break_3",
+  "secret_key",
+  "section_break_5",
+  "delete_sync",
+  "webhooks",
+  "unsub_webhook",
+  "section_break_8",
+  "setup_custom_fields",
+  "custom_fields"
+ ],
+ "fields": [
+  {
+   "fieldname": "credentials_section",
+   "fieldtype": "Section Break",
+   "label": "Credentials"
+  },
+  {
+   "fieldname": "api_key",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "API Key",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "secret_key",
+   "fieldtype": "Password",
+   "in_list_view": 1,
+   "label": "Secret Key",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_5",
+   "fieldtype": "Section Break"
+  },
+  {
+   "description": "Will also delete records from Mailjet when deleted",
+   "fieldname": "delete_sync",
+   "fieldtype": "Select",
+   "label": "Synchronise deletions?",
+   "options": "No\nYes"
+  },
+  {
+   "default": "No",
+   "fieldname": "setup_custom_fields",
+   "fieldtype": "Select",
+   "label": "Setup Custom Fields",
+   "options": "No\nYes"
+  },
+  {
+   "fieldname": "section_break_8",
+   "fieldtype": "Section Break",
+   "label": "Custom Fields"
+  },
+  {
+   "depends_on": "eval: doc.setup_custom_fields=='Yes';",
+   "fieldname": "custom_fields",
+   "fieldtype": "Table",
+   "label": "Fields",
+   "mandatory_depends_on": "eval: doc.setup_custom_fields=='Yes';",
+   "options": "Mailjet Fields"
+  },
+  {
+   "fieldname": "webhooks",
+   "fieldtype": "Section Break",
+   "label": "Webhooks"
+  },
+  {
+   "default": "0",
+   "fieldname": "unsub_webhook",
+   "fieldtype": "Check",
+   "label": "Unsubscribe Webhook"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2022-11-22 16:01:04.348482",
+ "modified_by": "Administrator",
+ "module": "Frappe Mailjet Integration",
+ "name": "Mailjet Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "print": 1,
+   "read": 1,
+   "role": "Guest"
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

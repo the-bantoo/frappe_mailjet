@@ -1,0 +1,177 @@
+{
+ "actions": [],
+ "autoname": "field:mailjet_id",
+ "creation": "2022-11-25 13:53:20.399113",
+ "default_view": "List",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_1",
+  "title",
+  "contact_list",
+  "mailjet_id",
+  "column_break_4",
+  "event_name",
+  "stats_section",
+  "sent",
+  "spam_reports",
+  "soft_bounces",
+  "column_break_8",
+  "delivered",
+  "unsubs",
+  "hard_bounces",
+  "column_break_10",
+  "opens",
+  "blocked",
+  "column_break_15",
+  "clicks"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_1",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "in_standard_filter": 1,
+   "label": "Title",
+   "no_copy": 1,
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "mailjet_id",
+   "fieldtype": "Data",
+   "label": "Mailjet ID",
+   "no_copy": 1,
+   "set_only_once": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "column_break_4",
+   "fieldtype": "Column Break",
+   "no_copy": 1,
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "event_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Event Name",
+   "no_copy": 1,
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "stats_section",
+   "fieldtype": "Section Break",
+   "label": "Stats"
+  },
+  {
+   "fieldname": "column_break_8",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_10",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sent",
+   "fieldtype": "Read Only",
+   "in_list_view": 1,
+   "label": "Sent",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "spam_reports",
+   "fieldtype": "Read Only",
+   "in_list_view": 1,
+   "label": "Spam Reports",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "delivered",
+   "fieldtype": "Read Only",
+   "in_list_view": 1,
+   "label": "Delivered",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "unsubs",
+   "fieldtype": "Read Only",
+   "label": "Unsubscribed",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "blocked",
+   "fieldtype": "Read Only",
+   "label": "Blocked",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "opens",
+   "fieldtype": "Read Only",
+   "label": "Opens",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "clicks",
+   "fieldtype": "Read Only",
+   "label": "Clicks",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "soft_bounces",
+   "fieldtype": "Read Only",
+   "label": "Soft Bounces",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "hard_bounces",
+   "fieldtype": "Read Only",
+   "label": "Hard Bounces",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "column_break_15",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Email Group Name (ERPNext) == Contact List (Mailjet)",
+   "fieldname": "contact_list",
+   "fieldtype": "Data",
+   "label": "Contact List",
+   "no_copy": 1,
+   "set_only_once": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2022-11-26 14:06:08.338460",
+ "modified_by": "Administrator",
+ "module": "Frappe Mailjet Integration",
+ "name": "Mailjet Email Campaign",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "show_title_field_in_link": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "title",
+ "track_changes": 1
+}
