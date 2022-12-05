@@ -49,16 +49,22 @@ def test_connection(creds):
     result = mailjet.contact.get(filters=filters)
     return { 'code' : result.status_code, 'res': result, 'connection': mailjet }
 
-
 @frappe.whitelist()
-def sync():
+def sync(): # issue 1
+    print('mailjet sync start')
+
     connection = connect()
 
     sync_mailing_lists(connection)
+    sync_campaigns(connection)
     sync_contacts(connection)
 
+    print('maijet sync complete')
+
+
+
 def sync_contacts(mailjet):
-    """Sync all Email Group Members as contacts in mailjet"""
+    """Sync all Email Group Members to mailjet as contacts"""
 
     list = mailjet.contactslist.get(filters = {
         'limit': 0
@@ -67,8 +73,8 @@ def sync_contacts(mailjet):
     if list.status_code == 200:
         contact_list = list.json()['Data']
 
-        for item in contact_list:
-            contact_list = item['Name']
+        for cl in contact_list:
+            contact_list = cl['Name']
             contacts = frappe.db.get_all('Email Group Member', fields={'name', 'email', 'mailjet_id', 'unsubscribed'}, limit=0, filters={
                 'email_group': contact_list
             })
@@ -127,7 +133,7 @@ def sync_contacts(mailjet):
                         unsub_data.append({
                             'Email': contact.email,
                             "Name": full_name,
-                            "IsExcludedFromCampaigns": "false",
+                            "IsExcludedFromCampaigns": "true",
                             "Properties": {
                                 'name': full_name,
                                 'firstname': first_name,
@@ -156,8 +162,7 @@ def sync_contacts(mailjet):
 
                 update_contacts_by_list(contact_list, contactlist_id, contacts, mailjet)
 
-                print_result(result)
-                #time.sleep(0.1)
+                # print_result(result)
 
                     
 def update_contacts_by_list(contact_list, contactlist_id=None, members=None, mailjet=None):
@@ -211,8 +216,6 @@ def update_contacts_by_list(contact_list, contactlist_id=None, members=None, mai
                     doc.unsubcribed = 1
                     doc.save( ignore_permissions=True, ignore_version=True )
 
-                #frappe_unsubbed_mailjet_subbed = ( (member.get('unsubcribed') == 1) and contact['UnsubscribedBy'] == "" )                
-
 
 def get_dict_by_value(dict_list, field, value):
     """returns dictionary with specific value in given field"""
@@ -261,9 +264,10 @@ def update_contact(doc, method):
     from frappe.utils import pretty_date
 
     creation = pretty_date(doc.creation) #frappe.errprint(pretty_date(doc.updated))
+    modified = pretty_date(doc.modified)
 
-    """if record was just created, do not update it after setting the mailjet_id"""
-    if creation == 'just now':
+    """if record was just created/updated, do not update it after setting the mailjet_id"""
+    if creation == 'just now' or modified == 'just now':
         return
     
     insert_contact(doc, method)
@@ -322,9 +326,11 @@ def insert_contact(doc, method):
         }
     })
         
-    print_result(result)
+    # print_result(result)
+
     if method != "on_update":
         update_group_member(doc, result)
+    return
 
 def update_group_member(doc, result, contacts=None):
 
@@ -337,7 +343,8 @@ def update_group_member(doc, result, contacts=None):
         doc.mailjet_id = res['Data'][0]['ContactID']
         doc.save( ignore_permissions=True, ignore_version=True )
 
-    print_result(result)
+    #print_result(result)
+    return
         
 
 
@@ -354,11 +361,14 @@ def delete_mailing_list(doc, method):
 
 @frappe.whitelist(allow_guest=True)
 def initialise():
-    frappe.errprint("initialise")
+    print("initialise")
+
     doc = frappe.get_doc("Mailjet Settings")
     verify_credentials(doc)
     setup_custom_fields(doc)
     setup_webhooks(doc)
+
+    print("initialised")
 
 def setup_custom_fields(doc):
     """Sync custom fields if not done"""
@@ -391,7 +401,6 @@ def setup_webhooks(doc):
 
         mailjet = connect()
         server_name = frappe.utils.get_url()
-        frappe.errprint(server_name)
 
         data = {
             'EventType': "unsub",
@@ -451,7 +460,7 @@ def remove_contact(doc, method):
             'jobtitle': job_title
         }
     })
-    print_result(result)
+    # print_result(result)
 
 
 def sync_mailing_lists(mailjet):
@@ -467,17 +476,15 @@ def sync_mailing_lists(mailjet):
 
         names = []
         list = list.json()['Data']
-        for item in list:
-            names.append(item['Name'])
+        for l in list:
+            names.append(l['Name'])
 
         for group in groups:
-            if group.name not in names:                
+            if group.name not in names:
                 data = {
                     'Name': group.name
                 }
                 result = mailjet.contactslist.create(data=data)
-
-                #frappe.errprint(result.json())
 
                 """if successful, save the Mailjet ID and last update time to the Email Group"""
                 if result.status_code == 201:
@@ -487,25 +494,12 @@ def sync_mailing_lists(mailjet):
                     doc.last_update = res['Data'][0]['CreatedAt']
                     doc.mailjet_id = res['Data'][0]['ID']
                     doc.save( ignore_permissions=True, ignore_version=True )
-                    
-                time.sleep(0.1)
+    return
 
 
-
-    # get_all erp campaigns past year
-    # get_all mj campaigns past year
-    # get all campaign stats this year / or separately
-    #
-    # if mj campaign already in erpnext
-    # . update stats
-    # . 
-    # else
-    # . create it with stats
-    # . get all email groups - for the event name
-
-# run only when campaign is not found
-# or by cronjob
 def sync_campaigns(mailjet=None):
+    """ called by by cronjob in hooks.py """
+
     if not mailjet:
         mailjet = connect()
     
@@ -518,7 +512,6 @@ def sync_campaigns(mailjet=None):
         campaigns = result.json()['Data']
 
         for campaign in campaigns:
-            #frappe.errprint(campaign)
 
             result = mailjet.statcounters.get(filters = {
                 'SourceId': campaign.get('ID'),
@@ -527,7 +520,7 @@ def sync_campaigns(mailjet=None):
                 'CounterResolution': 'Lifetime'
             })
             
-            print_result(result)
+            #print_result(result)
 
             stats = result.json()['Data'][0]
 
@@ -539,6 +532,7 @@ def sync_campaigns(mailjet=None):
             spam_reports = stats.get('MessageSpamCount')
             hard_bounces = stats.get('MessageHardBouncedCount')
             soft_bounces = stats.get('MessageSoftBouncedCount')
+            sender = campaign.get('FromEmail')
             delivered = sent - (hard_bounces + soft_bounces)
 
             # delivered shouldnt be negative
@@ -553,6 +547,7 @@ def sync_campaigns(mailjet=None):
                 doc.clicks = clicks
                 doc.blocked = blocked
                 doc.unsubs = unsubs
+                doc.sender = sender
                 doc.spam_reports = spam_reports
                 doc.hard_bounces = hard_bounces
                 doc.soft_bounces = soft_bounces
@@ -561,7 +556,6 @@ def sync_campaigns(mailjet=None):
                 doc.save(ignore_permissions=True, ignore_version=True)     
 
             except frappe.exceptions.DoesNotExistError:
-                #print('Mailjet Email Campaign 7653742672 not found')
                 event_name = "No Related Event"
                 contact_list = "No Related Contact List"
 
@@ -591,29 +585,27 @@ def sync_campaigns(mailjet=None):
                     'soft_bounces': soft_bounces,
                     'delivered': delivered
                 })
-                doc.insert(ignore_permissions=True)     
-
-                print(str(doc))
-
+                doc.insert(ignore_permissions=True)
             except Exception as e:
                 print(e)
-    
-    # create campaign if not exists if
-    # . get mailing list - match with email group mj_id
-    # . update stats
-    
+    return
 
 
 frappe.whitelist(allow_guest=True)
 def mailjet_webhook(args):
+    """syncs all mailjet events as """
     mailjet = connect()
 
     for a in args:
         #frappe.errprint(frappe.request.data)
         data = frappe._dict(a)
-        
-        if not frappe.db.exists('Mailjet Email Campaign', data.mj_campaign_id):
-            sync_campaigns(mailjet=None)
+
+        campaign = ""
+
+        if data.mj_campaign_id: 
+            campaign = data.mj_campaign_id 
+            if not frappe.db.exists('Mailjet Email Campaign', data.mj_campaign_id):
+                sync_campaigns(mailjet=None)
 
         match data.event:
             case 'sent':
@@ -623,7 +615,7 @@ def mailjet_webhook(args):
                     'doctype': 'Mailjet Webhook Log',
                     'event_type': data.event,
                     'email': data.email,
-                    'campaign': data.mj_campaign_id,
+                    'campaign': campaign,
                     'mailjet_id': data.mj_contact_id
                 })
                 
@@ -636,7 +628,7 @@ def mailjet_webhook(args):
                     'doctype': 'Mailjet Webhook Log',
                     'event_type': data.event,
                     'email': data.email,
-                    'campaign': data.mj_campaign_id,
+                    'campaign': campaign,
                     'mailjet_id': data.mj_contact_id,
                     'country': data.geo
                 })
@@ -650,7 +642,7 @@ def mailjet_webhook(args):
                     'doctype': 'Mailjet Webhook Log',
                     'event_type': data.event,
                     'email': data.email,
-                    'campaign': data.mj_campaign_id,
+                    'campaign': campaign,
                     'mailjet_id': data.mj_contact_id,
                     'country': data.geo,
                     'url': data.url
@@ -665,7 +657,7 @@ def mailjet_webhook(args):
                     'doctype': 'Mailjet Webhook Log',
                     'event_type': data.event,
                     'email': data.email,
-                    'campaign': data.mj_campaign_id,
+                    'campaign': campaign,
                     'mailjet_id': data.mj_contact_id,
                     'country': data.geo,
                     'source': data.source
@@ -680,36 +672,27 @@ def mailjet_webhook(args):
                     'doctype': 'Mailjet Webhook Log',
                     'event_type': data.event,
                     'email': data.email,
-                    'campaign': data.mj_campaign_id,
+                    'campaign': campaign,
                     'mailjet_id': data.mj_contact_id,
-                    'country': data.geo,
-                    'mailjet_list_id': data.mj_list_id
+                    'country': data.geo
                 })
                 
                 doc.insert(ignore_permissions=True)
                 doc.submit()
 
-            case 'unsub':
-                # create log entry
-                doc = frappe.get_doc({
-                    'doctype': 'Mailjet Webhook Log',
-                    'event_type': data.event,
-                    'email': data.email,
-                    'campaign': data.mj_campaign_id,
-                    'mailjet_id': data.mj_contact_id,
-                    'country': data.geo,
-                    'mailjet_list_id': data.mj_list_id
-                })
-                
-                doc.insert(ignore_permissions=True)
-                doc.submit()
+                # update the correct email group
+                if frappe.db.exists({'doctype': 'Email Group Member', 'email': data.email }):
+                    mail_group = frappe.db.get_list("Email Group", filters={"mailjet_id": data.mj_list_id}, limit=1)
+                    if mail_group:
+                        member = frappe.db.get_list("Email Group Member", filters={"email": data.email, "email_group": mail_group[0].name}, fields=["name"], limit=1)[0]
+                        frappe.db.set_value("Email Group Member", member.name, "unsubscribed", 1)
 
             case 'blocked':
                 doc = frappe.get_doc({
                     'doctype': 'Mailjet Webhook Log',
                     'event_type': data.event,
                     'email': data.email,
-                    'campaign': data.mj_campaign_id,
+                    'campaign': campaign,
                     'mailjet_id': data.mj_contact_id,
                     'payload': data.Payload,
                     'error_title': data.error_related_to,
@@ -724,7 +707,7 @@ def mailjet_webhook(args):
                     'doctype': 'Mailjet Webhook Log',
                     'event_type': data.event,
                     'email': data.email,
-                    'campaign': data.mj_campaign_id,
+                    'campaign': campaign,
                     'mailjet_id': data.mj_contact_id,
                     'payload': data.Payload,
                     'country': data.geo,
@@ -739,70 +722,3 @@ def mailjet_webhook(args):
 
             case _:
                 frappe.errprint(data)
-        """
-        sent    - MessageID, email, mj_campaign_id, mj_contact_id, Payload
-        open    - MessageID, email, mj_campaign_id, mj_contact_id, Payload, geo
-        click   - MessageID, email, mj_campaign_id, mj_contact_id, Payload, geo, url
-        spam    - MessageID, email, mj_campaign_id, mj_contact_id, Payload, source
-        unsub   - MessageID, email, mj_campaign_id, mj_contact_id, Payload, mj_list_id, geo
-        blocked - MessageID, email, mj_campaign_id, mj_contact_id, Payload, error_related_to, error
-        bounce  - MessageID, email, mj_campaign_id, mj_contact_id, Payload, geo, url, blocked, hard_bounce, error_related_to, error
-        """
-
-        if data.event == 'Wunsub':
-            if frappe.db.exists({'doctype': 'Email Group Member', 'email': data.email }):
-                mail_group = frappe.db.get_list("Email Group", filters={"mailjet_id": data.mj_list_id}, limit=1)
-                if mail_group:
-                    member = frappe.db.get_list("Email Group Member", filters={"email": data.email, "email_group": mail_group[0].name}, fields=["name"], limit=1)[0]
-                    frappe.db.set_value("Email Group Member", member.name, "unsubscribed", 1)
-
-            
-    
-        """
-
-        result = mailjet.campaign.get(id=data.mj_campaign_id)
-        print_result(result)
-
-        campaign = frappe._dict(result.json()['Data'][0])
-
-        frappe.errprint(result.json()['Data'])
-        
-        # create campaign if not exists
-
-            sync_campaigns(mailjet=None)
-        
-        if frappe.db.exists('Email Group', {'mailjet_id': campaign.ListID}):
-            doc = frappe.get_list('Email Group', fields=['event'], filters={
-                    'mailjet_id': campaign.ListID
-                })
-            frappe.errprint(doc)
-
-        """
-            
-        # create log
-
-
-    
-"""
-sent    - MessageID, email, mj_campaign_id, mj_contact_id, Payload
-open    - MessageID, email, mj_campaign_id, mj_contact_id, Payload, geo
-click   - MessageID, email, mj_campaign_id, mj_contact_id, Payload, geo, url
-bounce  - MessageID, email, mj_campaign_id, mj_contact_id, Payload, geo, url, blocked, hard_bounce, error_related_to, error
-spam    - MessageID, email, mj_campaign_id, mj_contact_id, Payload, source
-blocked - MessageID, email, mj_campaign_id, mj_contact_id, Payload, error_related_to, error
-unsub   - MessageID, email, mj_campaign_id, mj_contact_id, Payload, mj_list_id, geo
-
-event name = get_list = mj_campaign_id
-
-{'Count': 1, 'Data': [
-    {
-        'CampaignType': 2, 'ClickTracked': 1, 'CreatedAt': '2022-11-24T12:09:11Z', 'CustomValue': 'mj.nl=10400513', 
-        'FirstMessageID': 103582791517229061, 'FromEmail': 'hi@thebantoo.com', 'FromID': 6453698005, 'FromName': 'Bantoo', 
-        'HasHtmlCount': 1, 'HasTxtCount': 1, 'ID': 7653742672, 'IsDeleted': False, 'IsStarred': False, 'ListID': 10212675, 
-        'NewsLetterID': 10400513, 'OpenTracked': 1, 'SendEndAt': '2022-11-24T12:09:11Z', 'SendStartAt': '2022-11-24T12:09:11Z', 
-        'SpamassScore': 0, 'Status': 0, 'Subject': 'Excited about [[data:eventname:""]]?', 'UnsubscribeTrackedCount': 0}
-    ], 
-    'Total': 1}
-
-
-"""

@@ -9,10 +9,11 @@
  "field_order": [
   "section_break_1",
   "title",
-  "contact_list",
+  "sender",
   "mailjet_id",
   "column_break_4",
   "event_name",
+  "contact_list",
   "stats_section",
   "sent",
   "spam_reports",
@@ -144,11 +145,17 @@
    "label": "Contact List",
    "no_copy": 1,
    "set_only_once": 1
+  },
+  {
+   "fieldname": "sender",
+   "fieldtype": "Read Only",
+   "label": "Sender",
+   "no_copy": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2022-11-26 14:06:08.338460",
+ "modified": "2022-11-28 21:18:38.359707",
  "modified_by": "Administrator",
  "module": "Frappe Mailjet Integration",
  "name": "Mailjet Email Campaign",

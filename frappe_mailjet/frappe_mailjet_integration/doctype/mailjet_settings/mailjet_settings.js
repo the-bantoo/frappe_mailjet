@@ -10,13 +10,13 @@ frappe.ui.form.on('Mailjet Settings', {
 				console.log(r.message)
 			}
 		})
-		*/
 		frappe.call({
 			method: "frappe_mailjet.app.sync",
 			callback: function(r) {
 				console.log(r.message)
 			}
 		})
+		*/
 	},
 	after_save: function(frm) {
 		frappe.call({

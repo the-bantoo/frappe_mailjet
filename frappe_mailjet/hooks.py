@@ -111,18 +111,18 @@ app_license = "MIT"
 # }
 
 doc_events = {
-    "Mailjet Settings": {
-        #"on_update": "frappe_mailjet.app.initialise"
+	"Mailjet Settings": {
+		#"on_update": "frappe_mailjet.app.initialise"
 	},
-    "Email Group": {
-        "after_insert": "frappe_mailjet.app.insert_mailing_list",
-        "on_trash": "frappe_mailjet.app.delete_mailing_list"
-    },
-    "Email Group Member": {
-        "after_insert": "frappe_mailjet.app.insert_contact",
-        "on_trash": "frappe_mailjet.app.remove_contact",
-        "on_update": "frappe_mailjet.app.update_contact"
-    }
+	"Email Group": {
+		"after_insert": "frappe_mailjet.app.insert_mailing_list",
+		"on_trash": "frappe_mailjet.app.delete_mailing_list"
+	},
+	"Email Group Member": {
+		"after_insert": "frappe_mailjet.app.insert_contact",
+		"on_trash": "frappe_mailjet.app.remove_contact",
+		"on_update": "frappe_mailjet.app.update_contact"
+	}
 }
 
 # Scheduled Tasks
@@ -145,6 +145,14 @@ doc_events = {
 #		"frappe_mailjet.tasks.monthly"
 #	],
 # }
+
+scheduler_events = {
+	"cron": {
+		"*/5 * * * *": [
+			"frappe_mailjet.app.sync"
+		]
+	}
+}
 
 # Testing
 # -------

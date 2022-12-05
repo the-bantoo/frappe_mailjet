@@ -2,7 +2,7 @@
 // For license information, please see license.txt
 /* eslint-disable */
 
-frappe.query_reports["Mail Analytics"] = {
+frappe.query_reports["Email Campaign Analytics"] = {
 	"filters": [
 		{
 			"fieldname":"from_date",
@@ -21,7 +21,7 @@ frappe.query_reports["Mail Analytics"] = {
 			"default": frappe.datetime.get_today()
 		},
 		{
-			"fieldname": "event",
+			"fieldname": "event_name",
 			"label": __("Event"),
 			"fieldtype": "Link",
 			"width": "80",
@@ -35,8 +35,8 @@ frappe.query_reports["Mail Analytics"] = {
 			"options": "Mailjet Email Campaign",
 		},
 		{
-			"fieldname": "email_list",
-			"label": __("Email List"),
+			"fieldname": "contact_list",
+			"label": __("Contact List"),
 			"fieldtype": "Link",
 			"width": "80",
 			"options": "Email Group"
