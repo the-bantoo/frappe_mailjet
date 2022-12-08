@@ -397,24 +397,181 @@ def setup_custom_fields(doc):
         doc.save()
 
 def setup_webhooks(doc):
-    if doc.unsub_webhook == 1:
+    if doc.setup_webhooks == 1:
 
         mailjet = connect()
         server_name = frappe.utils.get_url()
 
+        results = []
+        error = []
+        success = []
+        exists = []
+
         data = {
-            'EventType': "unsub",
+            'EventType': "open",
             'IsBackup': "false",
+            "Version": "2",
             'Status': "alive",
             'Url': server_name + '/mailjet-webhook'
         }
-        result = mailjet.eventcallbackurl.create(data=data)
+        r = mailjet.eventcallbackurl.create(data=data)
 
-        #print_result(result)
-        if result.status_code == 201:
-            frappe.msgprint("Unsub webhook successfully setup in Mailjet")
-        elif result.status_code == 400:
-            frappe.msgprint("Unsub webhook is already exists in Mailjet")
+        if r.status_code == 201:
+            success.append("open")
+        elif r.status_code == 400:
+            exists.append("open")
+        else:
+            error.append("open")
+
+        data = {
+            'EventType': "click",
+            'IsBackup': "false",
+            "Version": "2",
+            'Status': "alive",
+            'Url': server_name + '/mailjet-webhook'
+        }
+        r = mailjet.eventcallbackurl.create(data=data)
+
+        if r.status_code == 201:
+            success.append("open")
+        elif r.status_code == 400:
+            exists.append("open")
+        else:
+            error.append("open")
+
+        data = {
+            'EventType': "bounce",
+            'IsBackup': "false",
+            "Version": "2",
+            'Status': "alive",
+            'Url': server_name + '/mailjet-webhook'
+        }
+        r = mailjet.eventcallbackurl.create(data=data)
+
+        if r.status_code == 201:
+            success.append("open")
+        elif r.status_code == 400:
+            exists.append("open")
+        else:
+            error.append("open")
+
+        data = {
+            'EventType': "spam",
+            'IsBackup': "false",
+            "Version": "2",
+            'Status': "alive",
+            'Url': server_name + '/mailjet-webhook'
+        }
+        r = mailjet.eventcallbackurl.create(data=data)
+
+        if r.status_code == 201:
+            success.append("open")
+        elif r.status_code == 400:
+            exists.append("open")
+        else:
+            error.append("open")
+
+        data = {
+            'EventType': "blocked",
+            'IsBackup': "false",
+            "Version": "2",
+            'Status': "alive",
+            'Url': server_name + '/mailjet-webhook'
+        }
+        r = mailjet.eventcallbackurl.create(data=data)
+
+        if r.status_code == 201:
+            success.append("open")
+        elif r.status_code == 400:
+            exists.append("open")
+        else:
+            error.append("open")
+
+        data = {
+            'EventType': "unsub",
+            'IsBackup': "false",
+            "Version": "2",
+            'Status': "alive",
+            'Url': server_name + '/mailjet-webhook'
+        }
+        r = mailjet.eventcallbackurl.create(data=data)
+
+        if r.status_code == 201:
+            success.append("open")
+        elif r.status_code == 400:
+            exists.append("open")
+        else:
+            error.append("open")
+
+        data = {
+            'EventType': "sent",
+            'IsBackup': "false",
+            "Version": "2",
+            'Status': "alive",
+            'Url': server_name + '/mailjet-webhook'
+        }
+        r = mailjet.eventcallbackurl.create(data=data)
+
+        if r.status_code == 201:
+            success.append("open")
+        elif r.status_code == 400:
+            exists.append("open")
+        else:
+            error.append("open")
+
+        #webhook_message(success, error)
+
+
+def webhook_message(success, error):
+
+    state = "updated"
+    
+    if str(sys._getframe(1)) == 'initialised':
+        state = "saved"
+
+    frappe.msgprint( _("Successfully {updated} <strong>").format(updated=state) + ', '.join(success) + "</strong> webhooks" )
+
+    if len(error) > 0:
+        frappe.msgprint( _("There were errors saving <strong>") + ', '.join(error) + "</strong> webhook(s)" )
+
+        
+
+
+@frappe.whitelist(allow_guest=True)
+def update_webhooks():
+    
+    doc = frappe.get_doc("Mailjet Settings", "Mailjet Settings")
+
+    if doc.setup_webhooks == 1:
+        mailjet = connect()
+        result = mailjet.eventcallbackurl.get()
+        
+        server_name = frappe.utils.get_url()
+
+        hooks = result.json().get('Data')
+        
+        success = []
+        error = []
+        for hook in hooks:
+            #get_dict_by_value(hooks, 'unsub', email)
+            
+            result = mailjet.eventcallbackurl.update(id=hook.get('ID'), data={
+                'EventType': hook.get('EventType'),
+                'IsBackup': "false",
+                "Version": "2",
+                'Status': "alive",
+                'Url': server_name + '/mailjet-webhook'
+            })
+            if result.status_code == 200:
+                success.append(hook.get('EventType'))
+            else:
+                error.append(hook.get('EventType'))
+
+        webhook_message(success, error)
+
+
+def p(*args):
+    print(*args)
 
 def remove_contact(doc, method):
     """remove contact from list on delete from frappe"""
