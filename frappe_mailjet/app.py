@@ -757,6 +757,8 @@ def mailjet_webhook(args):
         #frappe.errprint(frappe.request.data)
         data = frappe._dict(a)
 
+        p(a)
+
         campaign = ""
 
         if data.mj_campaign_id: 
@@ -870,8 +872,8 @@ def mailjet_webhook(args):
                     'country': data.geo,
                     'blocked': data.blocked,
                     'hard_bounce': data.hard_bounce,
-                    'error_title': data.error_related_to,
-                    'error': data.error
+                    'error_title': data.error,
+                    'error': data.comment
                 })
                 
                 doc.insert(ignore_permissions=True)
