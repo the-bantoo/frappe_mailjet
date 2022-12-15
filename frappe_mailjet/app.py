@@ -267,7 +267,7 @@ def update_contact(doc, method):
     modified = pretty_date(doc.modified)
 
     """if record was just created/updated, do not update it after setting the mailjet_id"""
-    if creation == 'just now' or modified == 'just now':
+    if creation.lower() == 'just now' or modified.lower() == 'just now' or modified.lower() == '1 minute ago':
         return
     
     insert_contact(doc, method)

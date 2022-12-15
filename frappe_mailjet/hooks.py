@@ -148,7 +148,7 @@ doc_events = {
 
 scheduler_events = {
 	"cron": {
-		"*/5 * * * *": [
+		"*/11 * * * *": [
 			"frappe_mailjet.app.sync"
 		]
 	}
