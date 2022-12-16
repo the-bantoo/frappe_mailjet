@@ -93,6 +93,13 @@ def sync_contacts(mailjet):
                     request_doc = frappe.db.get_list("Request", filters={'email_address': contact.email}, order_by='creation DESC', 
                         fields=['full_name', 'country', 'first_name', 'last_name', 'event_name', 'company', 'job_title'], 
                         limit=1 )
+                        
+                    if len(request_doc) < 1:
+                        lead = frappe.db.get_list("Lead", filters={'email_id': contact.email}, order_by='creation DESC', 
+                            fields=['full_name', 'country', 'first_name', 'last_name', 'event', 'company_name', 'job_title'], 
+                            limit=1 )
+
+                        request_doc = lead
 
                     full_name  = ""
                     country = ""
