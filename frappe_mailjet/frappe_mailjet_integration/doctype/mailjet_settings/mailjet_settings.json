@@ -4,6 +4,11 @@
    "action": "frappe_mailjet.app.update_webhooks",
    "action_type": "Server Action",
    "label": "Update Webhooks"
+  },
+  {
+   "action": "frappe_mailjet.app.sync",
+   "action_type": "Server Action",
+   "label": "Sync Now"
   }
  ],
  "allow_rename": 1,
@@ -95,7 +100,7 @@
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2022-12-08 08:24:55.825011",
+ "modified": "2023-01-12 12:15:38.560045",
  "modified_by": "Administrator",
  "module": "Frappe Mailjet Integration",
  "name": "Mailjet Settings",

@@ -56,8 +56,8 @@ def sync(): # issue 1
     connection = connect()
 
     sync_mailing_lists(connection)
-    sync_campaigns(connection)
     sync_contacts(connection)
+    sync_campaigns(connection)
 
     print('maijet sync complete')
 
@@ -83,40 +83,55 @@ def sync_contacts(mailjet):
                 sub_data = []
                 unsub_data = []
                 for contact in contacts:  
-                    """
-                    country
-                    firstname
-                    name
-                    newsletter_sub
-                    """ 
-
-                    request_doc = frappe.db.get_list("Request", filters={'email_address': contact.email}, order_by='creation DESC', 
-                        fields=['full_name', 'country', 'first_name', 'last_name', 'event_name', 'company', 'job_title'], 
-                        limit=1 )
-                        
-                    if len(request_doc) < 1:
-                        lead = frappe.db.get_list("Lead", filters={'email_id': contact.email}, order_by='creation DESC', 
-                            fields=['full_name', 'country', 'first_name', 'last_name', 'event', 'company_name', 'job_title'], 
-                            limit=1 )
-
-                        request_doc = lead
-
-                    full_name  = ""
-                    country = ""
-                    first_name = ""
-                    last_name = ""
+                    
                     event_name = ""
                     company = ""
-                    job_title = ""
+                    full_name = ""
+
+                    doc = []
                     
-                    if request_doc:
-                        full_name = request_doc[0].full_name
-                        country = request_doc[0].country
-                        first_name = request_doc[0].first_name
-                        last_name = request_doc[0].last_name
-                        event_name = request_doc[0].event_name
-                        company = request_doc[0].company
-                        job_title = request_doc[0].job_title
+
+                    doc = frappe.db.get_list("Lead", filters={'email_id': contact.email}, order_by='creation DESC', 
+                            fields=['lead_name', 'country', 'first_name', 'last_name', 'event', 'company_name', 'job_title', 'segmentation_no_1', 'segmentation_2'], 
+                            limit=1 )
+                        
+                    if len(doc) < 1: # add segg here, swap
+                        doc = frappe.db.get_list("Request", filters={'email_address': contact.email}, order_by='creation DESC', 
+                            fields=['full_name', 'country', 'first_name', 'last_name', 'event_name', 'company', 'job_title', 'segmentation_no_1', 'segmentation_2'], 
+                            limit=1 )
+
+                        # print(contact.email, doc)
+
+                        if len(doc) >= 1:            
+                            event_name = doc[0].event_name
+                            company = doc[0].company
+                            full_name = doc[0].full_name
+                    else:
+                        event_name = doc[0].event
+                        company = doc[0].company_name
+                        full_name = doc[0].lead_name
+
+                    if len(doc) >= 1:
+
+                        segmentation_no_1 = doc[0].segmentation_no_1 or ""
+                        segmentation_2 = doc[0].segmentation_2 or ""
+                        job_title = doc[0].job_title
+                        company = doc[0].company
+                        last_name = doc[0].last_name
+                        country = doc[0].country
+                        first_name = doc[0].first_name
+                    else:
+                        segmentation_no_1 = ""
+                        segmentation_2 = ""
+                        job_title = ""
+                        company = ""
+                        last_name = ""
+                        country = ""
+                        first_name = ""
+
+                        event_name = ""
+                        company = ""
+                        full_name = ""
                     
                     """create list of subscribed and unsubs and post separately"""
                     if contact.unsubscribed == 0:
@@ -132,7 +147,9 @@ def sync_contacts(mailjet):
                                 'lastname': last_name,
                                 'eventname': event_name,
                                 'company': company,
-                                'jobtitle': job_title
+                                'jobtitle': job_title,
+                                'segmentation_no_1': segmentation_no_1,
+                                'segmentation_2': segmentation_2
                             }
                         })
                     else:
@@ -140,7 +157,7 @@ def sync_contacts(mailjet):
                         unsub_data.append({
                             'Email': contact.email,
                             "Name": full_name,
-                            "IsExcludedFromCampaigns": "true",
+                            "IsExcludedFromCampaigns": "false",
                             "Properties": {
                                 'name': full_name,
                                 'firstname': first_name,
@@ -148,7 +165,9 @@ def sync_contacts(mailjet):
                                 'lastname': last_name,
                                 'eventname': event_name,
                                 'company': company,
-                                'jobtitle': job_title
+                                'jobtitle': job_title,
+                                'segmentation_no_1': segmentation_no_1,
+                                'segmentation_2': segmentation_2
                             }
                         })
 
@@ -169,7 +188,7 @@ def sync_contacts(mailjet):
 
                 update_contacts_by_list(contact_list, contactlist_id, contacts, mailjet)
 
-                # print_result(result)
+                print_result(result)
 
                     
 def update_contacts_by_list(contact_list, contactlist_id=None, members=None, mailjet=None):
@@ -280,7 +299,7 @@ def update_contact(doc, method):
     insert_contact(doc, method)
 
 
-def insert_contact(doc, method):
+def insert_contact(doc, method): # add seg
     """Sync Email Group on insert in frappe"""
     
     mailjet = connect()
@@ -288,12 +307,9 @@ def insert_contact(doc, method):
     action = "addnoforce"
 
     contactlist_id = frappe.db.get_value("Email Group", doc.email_group, ['mailjet_id'] )
-    
-    request_doc = frappe.db.get_list("Request", 
-        filters={'email_address': doc.email}, order_by='creation DESC', 
-        fields=['full_name', 'country', 'first_name', 'last_name', 'event_name', 'company', 'job_title'], 
-        limit=1 )
-    
+
+    event_name = ""
+    company = ""
     full_name  = ""
     country = ""
     first_name = ""
@@ -301,9 +317,30 @@ def insert_contact(doc, method):
     event_name = ""
     company = ""
     job_title = ""
+
+    request_doc = []
+
+    request_doc = frappe.db.get_list("Lead", 
+        filters={'email_id': doc.email}, order_by='creation DESC', 
+        fields=['lead_name', 'country', 'first_name', 'last_name', 'event', 'company_name', 'job_title', 'segmentation_no_1', 'segmentation_2'], 
+        limit=1 )
+        
+    if len(request_doc) < 1: # add segg here, swap
+        request_doc = frappe.db.get_list("Request", 
+            filters={'email_address': doc.email}, order_by='creation DESC', 
+            fields=['full_name', 'country', 'first_name', 'last_name', 'event_name', 'company', 'job_title', 'segmentation_no_1', 'segmentation_2'], 
+            limit=1 )
+            
+        event_name = request_doc[0].event_name
+        company = request_doc[0].company
+        full_name = request_doc[0].full_name
+    else:
+        event_name = request_doc[0].event
+        company = request_doc[0].company_name
+        full_name = request_doc[0].lead_name
     
     if request_doc:
-        full_name = request_doc[0].full_name
+        full_name = full_name
         country = request_doc[0].country
         first_name = request_doc[0].first_name
         last_name = request_doc[0].last_name
@@ -329,12 +366,12 @@ def insert_contact(doc, method):
             'lastname': last_name,
             'eventname': event_name,
             'company': company,
-            'jobtitle': job_title
+            'jobtitle': job_title,
+            'segmentation_no_1': request_doc[0].segmentation_no_1 or "",
+            'segmentation_2': request_doc[0].segmentation_2 or ""
         }
     })
-        
-    # print_result(result)
-
+    
     if method != "on_update":
         update_group_member(doc, result)
     return
@@ -588,11 +625,9 @@ def remove_contact(doc, method):
 
     contactlist_id = frappe.db.get_value("Email Group", doc.email_group, ['mailjet_id'] )
         
-    request_doc = frappe.db.get_list("Request", 
-        filters={'email_address': doc.email}, order_by='creation DESC', 
-        fields=['full_name', 'country', 'first_name', 'last_name', 'event_name', 'company', 'job_title'], 
-        limit=1 )
-
+    
+    event_name = ""
+    company = ""
     full_name  = ""
     country = ""
     first_name = ""
@@ -600,9 +635,31 @@ def remove_contact(doc, method):
     event_name = ""
     company = ""
     job_title = ""
+
+    request_doc = []
+
+    request_doc = frappe.db.get_list("Lead", 
+        filters={'email_id': doc.email}, order_by='creation DESC', 
+        fields=['lead_name', 'country', 'first_name', 'last_name', 'event', 'company_name', 'job_title', 'segmentation_no_1', 'segmentation_2'], 
+        limit=1 )
+        
+    if len(request_doc) < 1: # add segg here, swap
+        request_doc = frappe.db.get_list("Request", 
+            filters={'email_address': doc.email}, order_by='creation DESC', 
+            fields=['full_name', 'country', 'first_name', 'last_name', 'event_name', 'company', 'job_title', 'segmentation_no_1', 'segmentation_2'], 
+            limit=1 )
+            
+        event_name = request_doc[0].event_name
+        company = request_doc[0].company
+        full_name = request_doc[0].full_name
+    else:
+        event_name = request_doc[0].event
+        company = request_doc[0].company_name
+        full_name = request_doc[0].lead_name
+        
     
     if request_doc:
-        full_name = request_doc[0].full_name
+        full_name = full_name
         country = request_doc[0].country
         first_name = request_doc[0].first_name
         last_name = request_doc[0].last_name
@@ -657,7 +714,16 @@ def sync_mailing_lists(mailjet):
                     doc = frappe.get_doc("Email Group", group.name)
                     doc.last_update = res['Data'][0]['CreatedAt']
                     doc.mailjet_id = res['Data'][0]['ID']
+                    doc.save( ignore_permissions=True, ignore_version=True ) 
+
+            # generate an else statement if group.name is found in names and doc.maijet_id is different from res['Data'][0]['ID'], update it in the doc
+            else:
+                if group.mailjet_id != l['ID']:
+                    doc = frappe.get_doc("Email Group", group.name)
+                    doc.last_update = l['CreatedAt']
+                    doc.mailjet_id = l['ID']
                     doc.save( ignore_permissions=True, ignore_version=True )
+
     return
 
 
