@@ -84,93 +84,30 @@ def sync_contacts(mailjet):
                 unsub_data = []
                 for contact in contacts:  
                     
-                    event_name = ""
-                    company = ""
-                    full_name = ""
-
-                    doc = []
                     
-
-                    doc = frappe.db.get_list("Lead", filters={'email_id': contact.email}, order_by='creation DESC', 
-                            fields=['lead_name', 'country', 'first_name', 'last_name', 'event', 'company_name', 'job_title', 'segmentation_no_1', 'segmentation_2'], 
-                            limit=1 )
-                        
-                    if len(doc) < 1: # add segg here, swap
-                        doc = frappe.db.get_list("Request", filters={'email_address': contact.email}, order_by='creation DESC', 
-                            fields=['full_name', 'country', 'first_name', 'last_name', 'event_name', 'company', 'job_title', 'segmentation_no_1', 'segmentation_2'], 
-                            limit=1 )
-
-                        # print(contact.email, doc)
-
-                        if len(doc) >= 1:            
-                            event_name = doc[0].event_name
-                            company = doc[0].company
-                            full_name = doc[0].full_name
-                    else:
-                        event_name = doc[0].event
-                        company = doc[0].company_name
-                        full_name = doc[0].lead_name
-
-                    if len(doc) >= 1:
-
-                        segmentation_no_1 = doc[0].segmentation_no_1 or ""
-                        segmentation_2 = doc[0].segmentation_2 or ""
-                        job_title = doc[0].job_title
-                        company = doc[0].company
-                        last_name = doc[0].last_name
-                        country = doc[0].country
-                        first_name = doc[0].first_name
-                    else:
-                        segmentation_no_1 = ""
-                        segmentation_2 = ""
-                        job_title = ""
-                        company = ""
-                        last_name = ""
-                        country = ""
-                        first_name = ""
-
-                        event_name = ""
-                        company = ""
-                        full_name = ""
+                    properties = get_contact_properties(contact.email)
+                    if len(properties) < 1:
+                        #p("No properties for " + contact.email)
+                        continue
+                    properties = properties[0]
+                    full_name = properties['first_name'] + " " + properties['last_name']
                     
                     """create list of subscribed and unsubs and post separately"""
                     if contact.unsubscribed == 0:
-
                         sub_data.append({
                             'Email': contact.email,
                             "Name": full_name,
                             "IsExcludedFromCampaigns": "false",
-                            "Properties": {
-                                'name': full_name,
-                                'firstname': first_name,
-                                'country': country,
-                                'lastname': last_name,
-                                'eventname': event_name,
-                                'company': company,
-                                'jobtitle': job_title,
-                                'segmentation_no_1': segmentation_no_1,
-                                'segmentation_2': segmentation_2
-                            }
+                            "Properties": properties
                         })
                     else:
-
                         unsub_data.append({
                             'Email': contact.email,
                             "Name": full_name,
                             "IsExcludedFromCampaigns": "false",
-                            "Properties": {
-                                'name': full_name,
-                                'firstname': first_name,
-                                'country': country,
-                                'lastname': last_name,
-                                'eventname': event_name,
-                                'company': company,
-                                'jobtitle': job_title,
-                                'segmentation_no_1': segmentation_no_1,
-                                'segmentation_2': segmentation_2
-                            }
+                            "Properties": properties
                         })
-
+                    #p(properties)
                 
                 contactlist_id = frappe.db.get_value("Email Group", contact_list, ['mailjet_id'] )
 
@@ -293,10 +230,68 @@ def update_contact(doc, method):
     modified = pretty_date(doc.modified)
 
     """if record was just created/updated, do not update it after setting the mailjet_id"""
-    if creation.lower() == 'just now' or modified.lower() == 'just now' or modified.lower() == '1 minute ago':
+    if creation.lower() == 'just now' or modified.lower() == 'just now': # or modified.lower() == '1 minute ago':
         return
-    
+        
     insert_contact(doc, method)
+
+def get_contact_properties(email):
+    """Get properties for contact to sync"""
+    custom_fields = get_custom_fields()
+
+    # add full_name to custom fields if not already there
+    if "first_name" not in custom_fields:
+        custom_fields.append("first_name")
+
+    if "first_name" not in custom_fields:
+        custom_fields.append("last_name")
+        
+    settings = frappe.get_cached_doc("Mailjet Settings", "Mailjet Settings")
+
+    # Get the custom fields values from Lead or Request doctype
+    key = "email_address"
+    if settings.for_doctype == "Lead":
+        key = "email_id"
+        
+    dl = frappe.db.get_list(settings.for_doctype, 
+            filters={key: email}, order_by='creation DESC', 
+            fields=custom_fields, 
+            limit=1 )
+
+    if len(dl) < 1:
+        custom_fields.pop(custom_fields.index('event'))
+        custom_fields.append('event_name')
+        if 'company_name' in custom_fields:
+            custom_fields.pop(custom_fields.index('company_name'))
+            custom_fields.append('company')
+
+        # get Request fields and remove custom fields not in Request
+        request_field_docs = frappe.get_meta("Request").fields
+        request_fields = [d.fieldname for d in request_field_docs]
+        
+        for cf in custom_fields:
+            if cf not in request_fields:
+                custom_fields.pop(custom_fields.index(cf))
+
+        dl = frappe.db.get_list("Request", 
+            filters={'email_address': email}, order_by='creation DESC', 
+            fields=custom_fields, 
+            limit=1 )
+
+        if len(dl) > 0:
+            dl[0]['event'] = dl[0]['event_name']
+            dl[0].pop('event_name')
+            if 'company' in dl[0]:
+                dl[0]['company_name'] = dl[0]['company']
+                dl[0].pop('company')                
+
+    return dl
+
+
+def get_custom_fields():
+    """Get custom field names from Mailjet Settings"""
+    doc = frappe.get_cached_doc("Mailjet Settings", "Mailjet Settings")
+    return [d.field_name for d in doc.custom_fields]
 
 
 def insert_contact(doc, method): # add seg
@@ -308,69 +303,28 @@ def insert_contact(doc, method): # add seg
 
     contactlist_id = frappe.db.get_value("Email Group", doc.email_group, ['mailjet_id'] )
 
-    event_name = ""
-    company = ""
-    full_name  = ""
-    country = ""
-    first_name = ""
-    last_name = ""
-    event_name = ""
-    company = ""
-    job_title = ""
-
-    request_doc = []
-
-    request_doc = frappe.db.get_list("Lead", 
-        filters={'email_id': doc.email}, order_by='creation DESC', 
-        fields=['lead_name', 'country', 'first_name', 'last_name', 'event', 'company_name', 'job_title', 'segmentation_no_1', 'segmentation_2'], 
-        limit=1 )
-        
-    if len(request_doc) < 1: # add segg here, swap
-        request_doc = frappe.db.get_list("Request", 
-            filters={'email_address': doc.email}, order_by='creation DESC', 
-            fields=['full_name', 'country', 'first_name', 'last_name', 'event_name', 'company', 'job_title', 'segmentation_no_1', 'segmentation_2'], 
-            limit=1 )
-            
-        event_name = request_doc[0].event_name
-        company = request_doc[0].company
-        full_name = request_doc[0].full_name
-    else:
-        event_name = request_doc[0].event
-        company = request_doc[0].company_name
-        full_name = request_doc[0].lead_name
-    
-    if request_doc:
-        full_name = full_name
-        country = request_doc[0].country
-        first_name = request_doc[0].first_name
-        last_name = request_doc[0].last_name
-        event_name = request_doc[0].event_name
-        company = request_doc[0].company
-        job_title = request_doc[0].job_title
-    
     if doc.unsubscribed == 1:
         action = "unsub"
 
     if method == "on_update" and doc.unsubscribed==0:
         action = "addforce"
 
+    properties = get_contact_properties(doc.email)
+    if len(properties) < 1:
+        p("No properties for d " + doc.email)
+        return
+    properties = properties[0]
+    full_name = properties['first_name'] + " " + properties['last_name']
+
     result = mailjet.contactslist_managecontact.create(id=contactlist_id, data = {
         "IsExcludedFromCampaigns": "false",
-        'Email': doc.email,
         "Name": full_name,
+        'Email': doc.email,
         'Action': action,
-        "Properties": {
-            'name': full_name,
-            'firstname': first_name,
-            'country': country,
-            'lastname': last_name,
-            'eventname': event_name,
-            'company': company,
-            'jobtitle': job_title,
-            'segmentation_no_1': request_doc[0].segmentation_no_1 or "",
-            'segmentation_2': request_doc[0].segmentation_2 or ""
-        }
+        "Properties": properties
+        
     })
+    #print_result(result)
     
     if method != "on_update":
         update_group_member(doc, result)
@@ -395,7 +349,7 @@ def update_group_member(doc, result, contacts=None):
 def delete_mailing_list(doc, method):
     """Sync deletion of Email Group on confirmation"""
 
-    settings = frappe.get_doc("Mailjet Settings")
+    settings = frappe.get_cached_doc("Mailjet Settings", "Mailjet Settings")
 
     if settings.delete_sync != "Yes":
         return
@@ -414,17 +368,25 @@ def initialise():
 
     print("initialised")
 
-def setup_custom_fields(doc):
+@frappe.whitelist()
+def setup_custom_fields(settings=None, method=None):
     """Sync custom fields if not done"""
 
-    if doc.setup_custom_fields == "No":
+    if not settings:
+        settings = frappe.get_cached_doc("Mailjet Settings", "Mailjet Settings")
+
+    if settings.setup_custom_fields == "No":
         return
 
     mailjet = connect()
     count = 0
+    
+    # get caller function name
+    import inspect
+    caller_function = inspect.stack()[1][3]
 
-    for field in doc.custom_fields:
-        if field.synced == 0:
+    for field in settings.custom_fields:
+        if field.synced == 0 or caller_function != "initialise":
             
             result = mailjet.contactmetadata.create(data={
                 'Datatype': "str",
@@ -438,7 +400,7 @@ def setup_custom_fields(doc):
     
     if count >= 1:
         frappe.msgprint("Custom fields setup in Mailjet")
-        doc.save()
+        settings.save()
 
 def setup_webhooks(doc):
     if doc.setup_webhooks == 1:
@@ -624,64 +586,12 @@ def remove_contact(doc, method):
     action = "remove"
 
     contactlist_id = frappe.db.get_value("Email Group", doc.email_group, ['mailjet_id'] )
-        
-    
-    event_name = ""
-    company = ""
-    full_name  = ""
-    country = ""
-    first_name = ""
-    last_name = ""
-    event_name = ""
-    company = ""
-    job_title = ""
-
-    request_doc = []
-
-    request_doc = frappe.db.get_list("Lead", 
-        filters={'email_id': doc.email}, order_by='creation DESC', 
-        fields=['lead_name', 'country', 'first_name', 'last_name', 'event', 'company_name', 'job_title', 'segmentation_no_1', 'segmentation_2'], 
-        limit=1 )
-        
-    if len(request_doc) < 1: # add segg here, swap
-        request_doc = frappe.db.get_list("Request", 
-            filters={'email_address': doc.email}, order_by='creation DESC', 
-            fields=['full_name', 'country', 'first_name', 'last_name', 'event_name', 'company', 'job_title', 'segmentation_no_1', 'segmentation_2'], 
-            limit=1 )
-            
-        event_name = request_doc[0].event_name
-        company = request_doc[0].company
-        full_name = request_doc[0].full_name
-    else:
-        event_name = request_doc[0].event
-        company = request_doc[0].company_name
-        full_name = request_doc[0].lead_name
-        
-    
-    if request_doc:
-        full_name = full_name
-        country = request_doc[0].country
-        first_name = request_doc[0].first_name
-        last_name = request_doc[0].last_name
-        event_name = request_doc[0].event_name
-        company = request_doc[0].company
-        job_title = request_doc[0].job_title
-
     result = mailjet.contactslist_managecontact.create(id=contactlist_id, data = {
         'Email': doc.email,
-        "Name": full_name,
         'Action': action,
-        "Properties": {
-            'name': full_name,
-            'firstname': first_name,
-            'country': country,
-            'lastname': last_name,
-            'eventname': event_name,
-            'company': company,
-            'jobtitle': job_title
-        }
+        "Properties": {}
     })
-    # print_result(result)
+    print_result(result)
 
 
 def sync_mailing_lists(mailjet):

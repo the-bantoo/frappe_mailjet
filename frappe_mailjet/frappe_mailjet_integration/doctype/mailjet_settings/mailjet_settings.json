@@ -1,14 +1,22 @@
 {
  "actions": [
   {
+   "action": "frappe_mailjet.app.sync",
+   "action_type": "Server Action",
+   "group": "Mailjet Menu",
+   "label": "Sync Now"
+  },
+  {
    "action": "frappe_mailjet.app.update_webhooks",
    "action_type": "Server Action",
+   "group": "Mailjet Menu",
    "label": "Update Webhooks"
   },
   {
-   "action": "frappe_mailjet.app.sync",
+   "action": "frappe_mailjet.app.setup_custom_fields",
    "action_type": "Server Action",
-   "label": "Sync Now"
+   "group": "Mailjet Menu",
+   "label": "Force Custom Fields"
   }
  ],
  "allow_rename": 1,
@@ -28,6 +36,9 @@
   "setup_webhooks",
   "section_break_8",
   "setup_custom_fields",
+  "data_11",
+  "for_doctype",
+  "section_break_13",
   "custom_fields"
  ],
  "fields": [
@@ -78,7 +89,7 @@
    "label": "Custom Fields"
   },
   {
-   "depends_on": "eval: doc.setup_custom_fields=='Yes';",
+   "depends_on": "eval: doc.setup_custom_fields=='Yes' && doc.for_doctype;",
    "fieldname": "custom_fields",
    "fieldtype": "Table",
    "label": "Fields",
@@ -95,12 +106,28 @@
    "fieldname": "setup_webhooks",
    "fieldtype": "Check",
    "label": "Setup Webhooks"
+  },
+  {
+   "default": "Lead",
+   "depends_on": "eval: doc.setup_custom_fields=='Yes';",
+   "fieldname": "for_doctype",
+   "fieldtype": "Link",
+   "label": "Doctype",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "data_11",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_13",
+   "fieldtype": "Section Break"
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2023-01-12 12:15:38.560045",
+ "modified": "2023-01-21 19:32:33.830517",
  "modified_by": "Administrator",
  "module": "Frappe Mailjet Integration",
  "name": "Mailjet Settings",
