@@ -90,7 +90,7 @@ def sync_contacts(mailjet):
                         #p("No properties for " + contact.email)
                         continue
                     properties = properties[0]
-                    full_name = properties['first_name'] + " " + properties['last_name']
+                    full_name = str(properties['first_name']) + " " + str(properties['last_name'])
                     
                     """create list of subscribed and unsubs and post separately"""
                     if contact.unsubscribed == 0:
@@ -314,7 +314,7 @@ def insert_contact(doc, method): # add seg
         p("No properties for d " + doc.email)
         return
     properties = properties[0]
-    full_name = properties['first_name'] + " " + properties['last_name']
+    full_name = str(properties['first_name']) + " " + str(properties['last_name'])
 
     result = mailjet.contactslist_managecontact.create(id=contactlist_id, data = {
         "IsExcludedFromCampaigns": "false",
@@ -394,13 +394,16 @@ def setup_custom_fields(settings=None, method=None):
                 'NameSpace': "static"
             })
 
-            if result.status_code == 201:
+            if result.status_code == 201 or (result.status_code == 400 and field.synced == 0):
                 field.synced = 1
                 count = count + 1
+                            
+            print_result(result)
     
     if count >= 1:
         frappe.msgprint("Custom fields setup in Mailjet")
         settings.save()
+        settings.reload_doc()
 
 def setup_webhooks(doc):
     if doc.setup_webhooks == 1:
