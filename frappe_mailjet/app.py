@@ -90,6 +90,11 @@ def sync_contacts(mailjet):
                         #p("No properties for " + contact.email)
                         continue
                     properties = properties[0]
+                    if not properties['first_name']:
+                        properties['first_name'] = ""
+
+                    if not properties['last_name']:
+                        properties['last_name'] = ""
                     full_name = str(properties['first_name']) + " " + str(properties['last_name'])
                     
                     """create list of subscribed and unsubs and post separately"""
@@ -260,6 +265,7 @@ def get_contact_properties(email):
 
     if len(dl) < 1:
         custom_fields.pop(custom_fields.index('event'))
+        #custom_fields.pop(custom_fields.index('import_tags'))
         custom_fields.append('event_name')
         if 'company_name' in custom_fields:
             custom_fields.pop(custom_fields.index('company_name'))
@@ -273,6 +279,7 @@ def get_contact_properties(email):
             if cf not in request_fields:
                 custom_fields.pop(custom_fields.index(cf))
 
+        frappe.errprint(custom_fields)
         dl = frappe.db.get_list("Request", 
             filters={'email_address': email}, order_by='creation DESC', 
             fields=custom_fields, 
@@ -403,7 +410,7 @@ def setup_custom_fields(settings=None, method=None):
     if count >= 1:
         frappe.msgprint("Custom fields setup in Mailjet")
         settings.save()
-        settings.reload_doc()
+        settings.reload()
 
 def setup_webhooks(doc):
     if doc.setup_webhooks == 1:
@@ -845,7 +852,7 @@ def mailjet_webhook(args):
                 })
                 
                 doc.insert(ignore_permissions=True)
-                doc.submit(), 
+                doc.submit()
 
             case 'bounce':
                 doc = frappe.get_doc({
@@ -863,7 +870,9 @@ def mailjet_webhook(args):
                 })
                 
                 doc.insert(ignore_permissions=True)
-                doc.submit(), 
+                doc.submit()
 
             case _:
+                frappe.errprint('failed to save webhook event')
                 frappe.errprint(data)
+                
