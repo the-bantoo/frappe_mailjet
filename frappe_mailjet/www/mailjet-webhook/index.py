@@ -8,15 +8,25 @@ def get_context(context):
         data = frappe.form_dict.data
         
         if data[0]['email'] != "" :
+            frappe.errprint(11)
             mailjet_webhook(data)
 
+        frappe.errprint(data)
+        frappe.errprint(1)
+
     elif frappe.form_dict:
-        data = frappe.form_dict
+        d = frappe.form_dict
 
-        args = []
-        args.append(data)
+        data = []
+        data.append(d)
+        if d.email != "" :
+            frappe.errprint(22)
+            mailjet_webhook(data)
+        
+        frappe.errprint(data)
+        frappe.errprint(2)
 
-        if data.email != "" :
-            mailjet_webhook(args)
+    else:
+        frappe.errprint('no data in payload')
 
     return

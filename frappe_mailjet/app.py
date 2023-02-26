@@ -845,7 +845,7 @@ def mailjet_webhook(args):
                 })
                 
                 doc.insert(ignore_permissions=True)
-                doc.submit(), 
+                doc.submit()
 
             case 'bounce':
                 doc = frappe.get_doc({
@@ -863,7 +863,7 @@ def mailjet_webhook(args):
                 })
                 
                 doc.insert(ignore_permissions=True)
-                doc.submit(), 
+                doc.submit()
 
             case _:
                 frappe.errprint(data)

@@ -2,16 +2,18 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on('Mailjet Settings', {
-	refresh: function(frm) {		
-		frappe.call({
-			method: "frappe_mailjet.frappe_mailjet_integration.doctype.mailjet_settings.mailjet_settings.get_doc_fields",
-			args: {
-				"doc": frm.doc.for_doctype
-			},
-			callback: function(r) {
-				frm.fields_dict.custom_fields.grid.update_docfield_property("field_name","options", r.message);
-			}
-		});
+	refresh: function(frm) {
+		if (frm.doc.for_doctype){
+			frappe.call({
+				method: "frappe_mailjet.frappe_mailjet_integration.doctype.mailjet_settings.mailjet_settings.get_doc_fields",
+				args: {
+					"doc": frm.doc.for_doctype
+				},
+				callback: function(r) {
+					frm.fields_dict.custom_fields.grid.update_docfield_property("field_name","options", r.message);
+				}
+			});
+		}
 		
 		/**
 		frappe.call({
