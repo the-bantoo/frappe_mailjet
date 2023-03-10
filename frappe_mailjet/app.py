@@ -55,7 +55,7 @@ def sync(): # issue 1
 
     connection = connect()
 
-    sync_mailing_lists(connection)
+    sync_contact_lists(connection)
     sync_contacts(connection)
     sync_campaigns(connection)
 
@@ -71,23 +71,24 @@ def sync_contacts(mailjet):
     })
 
     if list.status_code == 200:
+        
         contact_list = list.json()['Data']
+        # contact_list = [{'Name': "World Data Summit 2023 Sponsors"}, {'Name': "World Data Summit 2022 Speakers"}, {'Name': "Adam Test"}]
+        all_contact_lists = frappe.get_all('Email Group', fields=['name', 'mailjet_id'], limit=0)
 
         for cl in contact_list:
-            contact_list = cl['Name']
+            _contact_list = cl['Name']
             contacts = frappe.db.get_all('Email Group Member', fields={'name', 'email', 'mailjet_id', 'unsubscribed'}, limit=0, filters={
-                'email_group': contact_list
+                'email_group': _contact_list
             })
 
             if len(contacts) > 0:
                 sub_data = []
                 unsub_data = []
                 for contact in contacts:  
-                    
-                    
                     properties = get_contact_properties(contact.email)
                     if len(properties) < 1:
-                        #p("No properties for " + contact.email)
+                        # do not sync contacts without properties in either Lead or Request doctype
                         continue
                     properties = properties[0]
                     if not properties['first_name']:
@@ -112,10 +113,9 @@ def sync_contacts(mailjet):
                             "IsExcludedFromCampaigns": "false",
                             "Properties": properties
                         })
-                    #p(properties)
-                
-                contactlist_id = frappe.db.get_value("Email Group", contact_list, ['mailjet_id'] )
-
+                        
+                # get contact list id from all_contact_lists using _contact_list
+                contactlist_id = get_dict_by_value(all_contact_lists, 'name', _contact_list)['mailjet_id']
                 if sub_data:
                     result = mailjet.contactslist_managemanycontacts.create(id=contactlist_id , data={
                         'Action': "addnoforce",
@@ -127,8 +127,13 @@ def sync_contacts(mailjet):
                         'Action': "unsub",
                         'Contacts': unsub_data
                     })
+                #ep("*******************************************************************************************")
+                #ep("sub_data: " + _contact_list +  " id: " + contactlist_id + " = " + str(len(sub_data)) + " " + str(sub_data))
+                #ep("===========================================================================================")
+                #ep("unsub_data: " + _contact_list +  " id: " + contactlist_id + " = " + str(len(unsub_data)) + " " + str(unsub_data))
+                #ep("*******************************************************************************************")
 
-                update_contacts_by_list(contact_list, contactlist_id, contacts, mailjet)
+                update_contacts_by_list(_contact_list, contactlist_id, contacts, mailjet)
 
                 print_result(result)
 
@@ -279,7 +284,6 @@ def get_contact_properties(email):
             if cf not in request_fields:
                 custom_fields.pop(custom_fields.index(cf))
 
-        frappe.errprint(custom_fields)
         dl = frappe.db.get_list("Request", 
             filters={'email_address': email}, order_by='creation DESC', 
             fields=custom_fields, 
@@ -318,6 +322,7 @@ def insert_contact(doc, method): # add seg
 
     properties = get_contact_properties(doc.email)
     if len(properties) < 1:
+        # do not sync contacts without properties in either Lead or Request doctype
         p("No properties for d " + doc.email)
         return
     properties = properties[0]
@@ -589,6 +594,9 @@ def update_webhooks():
 def p(*args):
     print(*args)
 
+def ep(msg):
+    frappe.errprint(msg)
+
 def remove_contact(doc, method):
     """remove contact from list on delete from frappe"""
     
@@ -604,10 +612,10 @@ def remove_contact(doc, method):
     print_result(result)
 
 
-def sync_mailing_lists(mailjet):
+def sync_contact_lists(mailjet):
     """send all Email Groups"""
 
-    groups = frappe.db.get_all('Email Group')
+    groups = frappe.db.get_all('Email Group', fields=['name', 'mailjet_id', 'last_update'], limit=0)
 
     list = mailjet.contactslist.get(filters = {
         'limit': 0
@@ -620,7 +628,9 @@ def sync_mailing_lists(mailjet):
         for l in list:
             names.append(l['Name'])
 
+        #print("{:80}|{:^30}|{:^30}|".format("name", "frappe_id", "mj_id"))
         for group in groups:
+
             if group.name not in names:
                 data = {
                     'Name': group.name
@@ -637,12 +647,18 @@ def sync_mailing_lists(mailjet):
                     doc.save( ignore_permissions=True, ignore_version=True ) 
 
             # generate an else statement if group.name is found in names and doc.maijet_id is different from res['Data'][0]['ID'], update it in the doc
-            else:
-                if group.mailjet_id != l['ID']:
+            else:               
+                mj_list = get_dict_by_value(list, 'Name', group.name)
+            
+                if group.mailjet_id != mj_list.get('ID', ''):
                     doc = frappe.get_doc("Email Group", group.name)
-                    doc.last_update = l['CreatedAt']
-                    doc.mailjet_id = l['ID']
+                    doc.last_update = mj_list.get('CreatedAt', '')
+                    doc.mailjet_id = mj_list.get('ID', '')
                     doc.save( ignore_permissions=True, ignore_version=True )
+        
+            # get ID from list using group.name
+            #mj_list = get_dict_by_value(list, 'Name', group.name)
+            #print("{:80}|{:^30}|{:^30}|".format(str(group.name), str(group.mailjet_id), mj_list.get('ID', '')))
 
     return
 
