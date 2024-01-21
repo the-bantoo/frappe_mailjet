@@ -3,6 +3,8 @@ from frappe import _, exceptions
 import subprocess
 import sys
 import time
+import json
+from datetime import datetime, timedelta
 
 
 def install(package):
@@ -16,6 +18,30 @@ except:
     install("mailjet_rest")
 
 from mailjet_rest import Client
+
+@frappe.whitelist()
+def update_subs():
+    """updates the total_subscribers in Email Group"""
+
+    groups = frappe.get_all('Email Group', fields=['name', 'total_subscribers'], limit=0)
+    for group in groups:
+        update_total_subscribers(group)
+    
+    frappe.msgprint('Updated Total Subscribers for all Email Groups')
+
+def update_total_subscribers(group):
+    actual_subs = get_total_subscribers(group)
+
+    if actual_subs != group.get('total_subscribers'):        
+        frappe.db.set_value('Email Group', group.get('name'), 'total_subscribers', actual_subs)
+        frappe.db.commit()
+
+def get_total_subscribers(group):
+    return frappe.db.sql(
+        """select count(*) from `tabEmail Group Member`
+        where email_group=%s""",
+        group.get('name'),
+    )[0][0]
 
 
 def get_credentials(doc=None):
@@ -50,95 +76,175 @@ def test_connection(creds):
     return { 'code' : result.status_code, 'res': result, 'connection': mailjet }
 
 @frappe.whitelist()
-def sync(): # issue 1
-    print('mailjet sync start')
+def force_sync():
+    # frappe.msgprint(_("Sync started in the background."))
+    sync()
+    frappe.msgprint(_("Manual sync is complete."))
 
-    connection = connect()
+def sync():
+    try:
+        print('mailjet sync ------ start')
+        connection = connect()
 
-    sync_contact_lists(connection)
-    sync_contacts(connection)
-    sync_campaigns(connection)
+        sync_contact_lists(connection)
+        sync_contacts(connection)
+        sync_campaigns(connection)
 
-    print('maijet sync complete')
+        print('maijet sync ------ complete')
+    except Exception as e:
+        print(e)
 
 
+def chunked_data(data, size):
+    """Yield successive size chunks from data."""
+    for i in range(0, len(data), size):
+        yield data[i:i + size]
+
+@frappe.whitelist()
+def delete_email_group_member(contact_name):
+    try:
+        # Delete the Email Group Member document
+        frappe.delete_doc('Email Group Member', contact_name)
+        
+        # frappe.errprint('delete -----------------------------> ' + contact_name)
+        # log = frappe.get_doc('Mailjet Sync Error Log', log_name)
+        # log.total = len(log.contacts) - 1
+        # log.save()
+        # frappe.db.commit()
+        
+        return 'done'
+    except Exception as e:
+        frappe.throw(str(e))
+
+@frappe.whitelist()
+def delete_multiple_email_group_members(contact_names):
+    try:
+        s = contact_names
+        s = s.replace('"contacts"', '').replace(':', '').replace('{[', '').replace(']}', '')
+        contacts = s.split(",")
+
+        for c in contacts:
+            delete_email_group_member(c)
+
+    except Exception as e:
+        frappe.throw(str(e))
 
 def sync_contacts(mailjet):
     """Sync all Email Group Members to mailjet as contacts"""
 
-    list = mailjet.contactslist.get(filters = {
-        'limit': 0
-    })
+    list_result = mailjet.contactslist.get(filters={'limit': 0})
 
-    if list.status_code == 200:
-        
-        contact_list = list.json()['Data']
-        # contact_list = [{'Name': "World Data Summit 2023 Sponsors"}, {'Name': "World Data Summit 2022 Speakers"}, {'Name': "Adam Test"}]
+    if list_result.status_code in [200, 201]:
+        contact_list = list_result.json()['Data']
         all_contact_lists = frappe.get_all('Email Group', fields=['name', 'mailjet_id'], limit=0)
 
         for cl in contact_list:
             _contact_list = cl['Name']
+            # _contact_list = 'World Data Summit All'
+            
             contacts = frappe.db.get_all('Email Group Member', fields={'name', 'email', 'mailjet_id', 'unsubscribed'}, limit=0, filters={
-                'email_group': _contact_list
+                'email_group': _contact_list #, 'name': 'EGM7208'
             })
 
-            if len(contacts) > 0:
+            if contacts:
                 sub_data = []
                 unsub_data = []
-                for contact in contacts:  
+                not_synched = []
+
+                for contact in contacts:
                     properties = get_contact_properties(contact.email)
-                    if len(properties) < 1:
-                        # do not sync contacts without properties in either Lead or Request doctype
+                    if not properties:
+                        not_synched.append(contact)
                         continue
                     properties = properties[0]
-                    if not properties['first_name']:
-                        properties['first_name'] = ""
 
-                    if not properties['last_name']:
-                        properties['last_name'] = ""
-                    full_name = str(properties['first_name']) + " " + str(properties['last_name'])
-                    
-                    """create list of subscribed and unsubs and post separately"""
+                    full_name = f"{properties.get('first_name', '')} {properties.get('last_name', '')}".strip()
+                    contact_data = {
+                        'Email': contact.email,
+                        "Name": full_name,
+                        "IsExcludedFromCampaigns": "false",
+                        "Properties": properties
+                    }
+
                     if contact.unsubscribed == 0:
-                        sub_data.append({
-                            'Email': contact.email,
-                            "Name": full_name,
-                            "IsExcludedFromCampaigns": "false",
-                            "Properties": properties
-                        })
+                        sub_data.append(contact_data)
                     else:
-                        unsub_data.append({
-                            'Email': contact.email,
-                            "Name": full_name,
-                            "IsExcludedFromCampaigns": "false",
-                            "Properties": properties
-                        })
-                        
-                # get contact list id from all_contact_lists using _contact_list
+                        unsub_data.append(contact_data)
+
                 contactlist_id = get_dict_by_value(all_contact_lists, 'name', _contact_list)['mailjet_id']
-                if sub_data:
-                    result = mailjet.contactslist_managemanycontacts.create(id=contactlist_id , data={
-                        'Action': "addnoforce",
-                        'Contacts': sub_data
+
+                for data_chunk in chunked_data(sub_data, 1000):
+                    result = mailjet.contactslist_managemanycontacts.create(id=contactlist_id, data={
+                        'Action': "addforce",
+                        'Contacts': data_chunk
                     })
-                
-                if unsub_data:
-                    result = mailjet.contactslist_managemanycontacts.create(id=contactlist_id , data={
+                    # Handle result or log it
+
+                for data_chunk in chunked_data(unsub_data, 1000):
+                    result = mailjet.contactslist_managemanycontacts.create(id=contactlist_id, data={
                         'Action': "unsub",
-                        'Contacts': unsub_data
+                        'Contacts': data_chunk
                     })
-                #ep("*******************************************************************************************")
-                #ep("sub_data: " + _contact_list +  " id: " + contactlist_id + " = " + str(len(sub_data)) + " " + str(sub_data))
-                #ep("===========================================================================================")
-                #ep("unsub_data: " + _contact_list +  " id: " + contactlist_id + " = " + str(len(unsub_data)) + " " + str(unsub_data))
-                #ep("*******************************************************************************************")
+                    # Handle result or log it
 
-                update_contacts_by_list(_contact_list, contactlist_id, contacts, mailjet)
+                update_contacts_by_list(_contact_list, contactlist_id, contacts, not_synched, mailjet)
+                create_sync_error_log(not_synched, _contact_list, 'Unavailable Lead or Request', '', 'Ongoing')
+                #print_result(result)  # Uncomment if needed
 
-                print_result(result)
+def create_sync_error_log(not_synched, contact_list, reason, next_action, status):
+    """
+    Create a log entry in 'Mailjet Sync Error Log' if not_synched list is different from today's earlier log,
+    and if the last matching log does not have 'stop_future_logs' set to 1.
+    """
 
-                    
-def update_contacts_by_list(contact_list, contactlist_id=None, members=None, mailjet=None):
+    total_not_synched = len(not_synched)
+    if not total_not_synched or total_not_synched < 1:
+        return
+
+    today = datetime.now()
+    start_of_day = datetime(today.year, today.month, today.day)
+
+    # Convert not_synched list to a JSON string for comparison
+    not_synched_json = json.dumps(not_synched, sort_keys=True)
+
+    identical_log_exists = frappe.get_all('Mailjet Sync Error Log', 
+        fields=['name'],
+        order_by='sync_timestamp desc',
+        limit=1,
+        filters={
+            'total': total_not_synched,
+            'contact_list': contact_list
+    })
+
+    if identical_log_exists:
+        return
+
+    # Create a new log entry
+    log_entry = frappe.get_doc({
+        'doctype': 'Mailjet Sync Error Log',
+        'contact_list': contact_list,
+        'reason': reason,
+        'next_action': next_action,
+        'status': status,
+        'total': total_not_synched,
+        'contacts': []  # Child table field
+    })
+
+    # Add not_synched contacts to the child table
+    for contact in not_synched:
+        log_entry.append('contacts', {
+            'contact': contact['name'],
+            'email': contact['email'],
+            'contact_list': contact_list,
+            'is_unsubscribed': contact['unsubscribed']
+        })
+
+    log_entry.insert()
+    frappe.db.commit()
+    
+
+
+def update_contacts_by_list(contact_list, contactlist_id=None, members=None, not_synched=[], mailjet=None):
     """Get IDs and updated time"""
 
     if not mailjet:
@@ -148,55 +254,78 @@ def update_contacts_by_list(contact_list, contactlist_id=None, members=None, mai
         members = frappe.db.get_all('Email Group Member', fields={'name', 'email', 'mailjet_id', 'unsubscribed'}, limit=0, filters={
                 'email_group': contact_list
             })
-        
-    result = mailjet.contact.get(filters = {
-        'Limit': 0,
-        'ContactsList': contactlist_id,
-    })
-    #print_result(result)
+    all_contacts = []
+    offset = 0
+    limit = 1000  # Adjust if needed
 
-    if result.status_code == 200:
+    # bypass api limit to retrieve all MJ records
+    while True:
+        result = mailjet.contact.get(filters={
+            'Limit': limit,
+            'Offset': offset,
+            'ContactsList': contactlist_id,
+        })
+
+        if result.status_code not in [200, 201]:
+            break
+
+        data = result.json().get('Data', [])
+        if not data:
+            break
+
+        all_contacts.extend(data)
+        offset += limit
+
+    #print_result(result)
+    # frappe.errprint('list: ' + contact_list)
+    # frappe.errprint("erp count: " + str(len(members)))
+    # frappe.errprint("mj count: " + str(len(all_contacts)))
+    # frappe.errprint("not synched count: " + str(len(not_synched)))
+    # frappe.errprint(not_synched)
+
+    if int(result.status_code) in [200, 201]:
 
         #frappe.errprint(result.json()['Data'])
 
         member_emails = []
         for m in members:
-            member_emails.append(m.email)
+            member_emails.append(m.email.lower())
+
+        
+        
+        for contact in all_contacts:
+            email = contact.get('Email', None)
             
-        for contact in result.json()['Data']:
-            email = contact['Email']
-            
-            if email in member_emails:
+            if email and email in member_emails:
+                email = email.lower()
                 member = get_dict_by_value(members, 'email', email)
 
-                if str(contact['ID']) != str(member.get('mailjet_id')):
-                    """only update records if they have a de-similar IDs"""
+                # true if subscription status is different
+                update_subscription_status = ( (contact['UnsubscribedBy'] != "") and (member['unsubcribed'] == 0) )
+                if (str(contact['ID']) != str(member['mailjet_id']) ) or update_subscription_status:
+                    """only update records if they have a de-similar IDs or difference in subscription status"""
+                    # frappe.errprint(str(contact['ID']) + "MJ | ERP "+  str(member['mailjet_id']) )
 
-                    doc = frappe.get_doc( "Email Group Member", member.get('name') )
+                    doc = frappe.get_doc( "Email Group Member", member['name'] )
                     
                     doc.last_update = contact['LastUpdateAt']
                     doc.mailjet_id = contact['ID']
-                    doc.save( ignore_permissions=True, ignore_version=True )
-                
-                """only update subscription status if the two systems are different"""
-                
-                frappe_subbed_mailjet_unsubbed = ( (contact['UnsubscribedBy'] != "") and (member.get('unsubcribed') == 0) )
 
-                if frappe_subbed_mailjet_unsubbed:
-                    doc = frappe.get_doc( "Email Group Member", member.get('name') )
-                    
-                    doc.last_update = contact['LastUpdateAt']
-                    doc.unsubcribed = 1
+                    if update_subscription_status:
+                        doc.unsubcribed = 1
                     doc.save( ignore_permissions=True, ignore_version=True )
-
 
 def get_dict_by_value(dict_list, field, value):
     """returns dictionary with specific value in given field"""
     for d in dict_list:
-        if d.get(field) == value:
+        if d.get(field).lower() == value.lower():
             return d
 
+import inspect
+
 def print_result(result):
+    # frappe.errprint("Source: " + inspect.stack()[1][3])
+
 
     if result:
         frappe.errprint(result.status_code)
@@ -225,7 +354,7 @@ def insert_mailing_list(doc, method):
     })
 
     """if successful, save the Mailjet ID and last update time to the Email Group"""
-    if result.status_code == 201:
+    if int(result.status_code) in [200, 201]:
         res = result.json()
 
         doc = frappe.get_doc("Email Group", doc.name)
@@ -345,7 +474,7 @@ def insert_contact(doc, method): # add seg
 def update_group_member(doc, result, contacts=None):
 
     """if successful, save the Mailjet ID and last update time to the Email Group Member"""
-    if result.status_code == 201:
+    if int(result.status_code) in [200, 201]:
         res = result.json()
 
         doc = frappe.get_doc("Email Group Member", doc.name)
@@ -368,6 +497,7 @@ def delete_mailing_list(doc, method):
 
     mailjet = connect()
     result = mailjet.contactslist.delete(id=doc.mailjet_id)
+
 
 @frappe.whitelist(allow_guest=True)
 def initialise():
@@ -583,7 +713,7 @@ def update_webhooks():
                 'Status': "alive",
                 'Url': server_name + '/mailjet-webhook'
             })
-            if result.status_code == 200:
+            if int(result.status_code) in [200, 201]:
                 success.append(hook.get('EventType'))
             else:
                 error.append(hook.get('EventType'))
@@ -609,7 +739,7 @@ def remove_contact(doc, method):
         'Action': action,
         "Properties": {}
     })
-    print_result(result)
+    # print_result(result)
 
 
 def sync_contact_lists(mailjet):
@@ -621,7 +751,7 @@ def sync_contact_lists(mailjet):
         'limit': 0
     })
 
-    if list.status_code == 200:
+    if list.status_code in [200, 201]:
 
         names = []
         list = list.json()['Data']
@@ -638,7 +768,7 @@ def sync_contact_lists(mailjet):
                 result = mailjet.contactslist.create(data=data)
 
                 """if successful, save the Mailjet ID and last update time to the Email Group"""
-                if result.status_code == 201:
+                if int(result.status_code) == 201:
                     res = result.json()
 
                     doc = frappe.get_doc("Email Group", group.name)
@@ -674,7 +804,7 @@ def sync_campaigns(mailjet=None):
         'Period': 'Year'
     })
 
-    if result.status_code == 200:
+    if int(result.status_code) in [200, 201]:
         campaigns = result.json()['Data']
 
         for campaign in campaigns:

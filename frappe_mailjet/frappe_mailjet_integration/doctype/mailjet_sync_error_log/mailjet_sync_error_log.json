@@ -1,0 +1,142 @@
+{
+ "actions": [],
+ "allow_copy": 1,
+ "allow_rename": 1,
+ "autoname": "format:SYNC-LOG-{MM}{YY}-{#####}",
+ "creation": "2024-01-18 08:17:23.436085",
+ "default_view": "List",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "contact_list",
+  "column_break_nkec0",
+  "reason",
+  "column_break_bd2yp",
+  "status",
+  "section_break_bvx9q",
+  "total",
+  "column_break_gpxmo",
+  "section_break_lqyhi",
+  "contacts",
+  "delete_mode"
+ ],
+ "fields": [
+  {
+   "fieldname": "column_break_nkec0",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_bvx9q",
+   "fieldtype": "Section Break"
+  },
+  {
+   "allow_bulk_edit": 1,
+   "fieldname": "contacts",
+   "fieldtype": "Table",
+   "label": "Contacts",
+   "options": "MJ Log Contacts"
+  },
+  {
+   "columns": 4,
+   "fieldname": "reason",
+   "fieldtype": "Data",
+   "label": "Reason",
+   "read_only": 1,
+   "width": "22em"
+  },
+  {
+   "columns": 2,
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Ongoing\nResolved",
+   "width": "10em"
+  },
+  {
+   "columns": 4,
+   "fieldname": "contact_list",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Contact List",
+   "options": "Email Group",
+   "read_only": 1,
+   "set_only_once": 1,
+   "width": "200px"
+  },
+  {
+   "fieldname": "column_break_bd2yp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "No. of Contacts",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_gpxmo",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "delete_mode",
+   "fieldtype": "Check",
+   "label": "Allow Permanent Deletion"
+  },
+  {
+   "fieldname": "section_break_lqyhi",
+   "fieldtype": "Section Break",
+   "hide_border": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2024-01-21 19:13:26.293426",
+ "modified_by": "Administrator",
+ "module": "Frappe Mailjet Integration",
+ "name": "Mailjet Sync Error Log",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales User",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

@@ -1,22 +1,27 @@
 {
  "actions": [
   {
-   "action": "frappe_mailjet.app.sync",
+   "action": "frappe_mailjet.app.force_sync",
    "action_type": "Server Action",
-   "group": "Mailjet Menu",
    "label": "Sync Now"
   },
   {
    "action": "frappe_mailjet.app.update_webhooks",
    "action_type": "Server Action",
-   "group": "Mailjet Menu",
+   "group": "Menu",
    "label": "Update Webhooks"
   },
   {
    "action": "frappe_mailjet.app.setup_custom_fields",
    "action_type": "Server Action",
-   "group": "Mailjet Menu",
+   "group": "Menu",
    "label": "Force Custom Fields"
+  },
+  {
+   "action": "frappe_mailjet.app.update_subs",
+   "action_type": "Server Action",
+   "group": "Menu",
+   "label": "Update Subscriber Counts"
   }
  ],
  "allow_rename": 1,
@@ -127,7 +132,7 @@
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2023-01-21 19:32:33.830517",
+ "modified": "2024-01-21 19:21:44.042594",
  "modified_by": "Administrator",
  "module": "Frappe Mailjet Integration",
  "name": "Mailjet Settings",
