@@ -80,10 +80,10 @@ def force_sync():
     # frappe.msgprint(_("Sync started in the background."))
     sync()
     frappe.msgprint(_("Manual sync is complete."))
-
+    
 def sync():
     try:
-        print('mailjet sync ------ start')
+        print('mailjet sync ------ start')        
         connection = connect()
 
         sync_contact_lists(connection)
@@ -209,7 +209,7 @@ def create_sync_error_log(not_synched, contact_list, reason, next_action, status
 
     identical_log_exists = frappe.get_all('Mailjet Sync Error Log', 
         fields=['name'],
-        order_by='sync_timestamp desc',
+        order_by='creation desc',
         limit=1,
         filters={
             'total': total_not_synched,
