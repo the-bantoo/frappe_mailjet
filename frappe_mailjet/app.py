@@ -136,7 +136,8 @@ def sync_contacts(mailjet):
     if list_result.status_code in [200, 201]:
         contact_list = list_result.json()['Data']
         all_contact_lists = frappe.get_all('Email Group', fields=['name', 'mailjet_id'], limit=0)
-
+        settings = frappe.get_cached_doc("Mailjet Settings", "Mailjet Settings")
+                
         for cl in contact_list:
             _contact_list = cl['Name']
             # _contact_list = 'World Data Summit All'
@@ -151,19 +152,28 @@ def sync_contacts(mailjet):
                 not_synched = []
 
                 for contact in contacts:
+                    contact_data = {}
                     properties = get_contact_properties(contact.email)
-                    if not properties:
+                    if not properties and settings.sync_contacts_without_custom_fields == 0:
                         not_synched.append(contact)
                         continue
-                    properties = properties[0]
+                    elif not properties and settings.sync_contacts_without_custom_fields == 1:
+                        contact_data = {
+                            'Email': contact.email,
+                            "Name": '',
+                            "IsExcludedFromCampaigns": "false"
+                        }
+                    else:
+                        properties = properties[0]
 
-                    full_name = f"{properties.get('first_name', '')} {properties.get('last_name', '')}".strip()
-                    contact_data = {
-                        'Email': contact.email,
-                        "Name": full_name,
-                        "IsExcludedFromCampaigns": "false",
-                        "Properties": properties
-                    }
+                        full_name = f"{properties.get('first_name', '')} {properties.get('last_name', '')}".strip()
+                        contact_data = {
+                            'Email': contact.email,
+                            "Name": full_name,
+                            "IsExcludedFromCampaigns": "false",
+                            "Properties": properties
+                        }
+
 
                     if contact.unsubscribed == 0:
                         sub_data.append(contact_data)
@@ -186,8 +196,17 @@ def sync_contacts(mailjet):
                     })
                     # Handle result or log it
 
+                if settings.sync_contacts_without_custom_fields == 1:
+                    result = mailjet.contactslist_managemanycontacts.create(id=contactlist_id, data={
+                        'Action': "addforce",
+                        'Contacts': not_synched
+                    })
+                else:
+                    create_sync_error_log(not_synched, _contact_list, 'Unavailable Lead or Request', '', 'Ongoing')
+
+
                 update_contacts_by_list(_contact_list, contactlist_id, contacts, not_synched, mailjet)
-                create_sync_error_log(not_synched, _contact_list, 'Unavailable Lead or Request', '', 'Ongoing')
+                
                 #print_result(result)  # Uncomment if needed
 
 def create_sync_error_log(not_synched, contact_list, reason, next_action, status):

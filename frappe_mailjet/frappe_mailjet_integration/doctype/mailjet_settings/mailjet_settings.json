@@ -41,6 +41,7 @@
   "setup_webhooks",
   "section_break_8",
   "setup_custom_fields",
+  "sync_contacts_without_custom_fields",
   "data_11",
   "for_doctype",
   "section_break_13",
@@ -127,12 +128,18 @@
   {
    "fieldname": "section_break_13",
    "fieldtype": "Section Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "sync_contacts_without_custom_fields",
+   "fieldtype": "Check",
+   "label": "Sync Contacts Without Custom Fields"
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2024-01-21 19:21:44.042594",
+ "modified": "2024-01-24 14:53:49.488991",
  "modified_by": "Administrator",
  "module": "Frappe Mailjet Integration",
  "name": "Mailjet Settings",
