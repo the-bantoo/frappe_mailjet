@@ -154,16 +154,7 @@ def sync_contacts(mailjet):
                 for contact in contacts:
                     contact_data = {}
                     properties = get_contact_properties(contact.email)
-                    if not properties and settings.sync_contacts_without_custom_fields == 0:
-                        not_synched.append(contact)
-                        continue
-                    elif not properties and settings.sync_contacts_without_custom_fields == 1:
-                        contact_data = {
-                            'Email': contact.email,
-                            "Name": '',
-                            "IsExcludedFromCampaigns": "false"
-                        }
-                    else:
+                    if properties:
                         properties = properties[0]
 
                         full_name = f"{properties.get('first_name', '')} {properties.get('last_name', '')}".strip()
@@ -172,6 +163,15 @@ def sync_contacts(mailjet):
                             "Name": full_name,
                             "IsExcludedFromCampaigns": "false",
                             "Properties": properties
+                        }
+                    elif not properties and settings.sync_contacts_without_custom_fields == 0:
+                        not_synched.append(contact)
+                        continue
+                    elif not properties and settings.sync_contacts_without_custom_fields == 1:
+                        contact_data = {
+                            'Email': contact.email,
+                            "Name": '',
+                            "IsExcludedFromCampaigns": "false"
                         }
 
 
@@ -201,10 +201,11 @@ def sync_contacts(mailjet):
                         'Action': "addforce",
                         'Contacts': not_synched
                     })
+                    contacts = contacts + not_synched
                 else:
                     create_sync_error_log(not_synched, _contact_list, 'Unavailable Lead or Request', '', 'Ongoing')
 
-
+                # not_synched
                 update_contacts_by_list(_contact_list, contactlist_id, contacts, not_synched, mailjet)
                 
                 #print_result(result)  # Uncomment if needed
