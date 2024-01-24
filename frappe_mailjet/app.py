@@ -77,7 +77,7 @@ def test_connection(creds):
 
 @frappe.whitelist()
 def force_sync():
-    # frappe.msgprint(_("Sync started in the background."))
+    #frappe.msgprint(_("Sync started in the background."))
     sync()
     frappe.msgprint(_("Manual sync is complete."))
     
@@ -382,7 +382,7 @@ def get_contact_properties(email):
     if "first_name" not in custom_fields:
         custom_fields.append("first_name")
 
-    if "first_name" not in custom_fields:
+    if "last_name" not in custom_fields:
         custom_fields.append("last_name")
         
     settings = frappe.get_cached_doc("Mailjet Settings", "Mailjet Settings")
@@ -406,8 +406,8 @@ def get_contact_properties(email):
             custom_fields.append('company')
 
         # get Request fields and remove custom fields not in Request
-        request_field_docs = frappe.get_meta("Request").fields
-        request_fields = [d.fieldname for d in request_field_docs]
+        request_field_doc = frappe.get_meta("Request").fields
+        request_fields = [d.fieldname for d in request_field_doc]
         
         for cf in custom_fields:
             if cf not in request_fields:
@@ -423,7 +423,50 @@ def get_contact_properties(email):
             dl[0].pop('event_name')
             if 'company' in dl[0]:
                 dl[0]['company_name'] = dl[0]['company']
-                dl[0].pop('company')                
+                dl[0].pop('company')
+        else:
+            # Adjust custom fields for 'Discount Request'
+            # Note: 'Discount Request' has different fields like 'full_name', 'corporate_email'
+            discount_request_fields = ['full_name', 'company_name', 'corporate_email', 'newsletter', 'event_name']
+            
+
+            # Perform a new query on the "Discount Request" doctype
+            dl = frappe.db.get_list("Discount Request", 
+                                    filters={'corporate_email': email}, 
+                                    order_by='creation DESC', 
+                                    fields=discount_request_fields, 
+                                    limit=1)
+
+            #custom_fields = [cf for cf in custom_fields if cf not in discount_request_fields]
+            for f in discount_request_fields:
+                if f in custom_fields:
+                    custom_fields.pop(custom_fields.index(f))
+            if 'first_name' in custom_fields:
+                custom_fields.pop(custom_fields.index('first_name'))
+            if 'last_name' in custom_fields:
+                custom_fields.pop(custom_fields.index('last_name'))
+
+            # Additional adjustments for 'Discount Request' results
+            if dl:
+                full_name = dl[0]['full_name'].split()
+                l_name = ''
+                
+                if len(full_name) > 1:
+                    l_name = full_name[1]
+
+                dr = {
+                        'first_name': full_name[0],
+                        'last_name': l_name, 
+                        'company_name': dl[0]['company_name'], 
+                        'event_name': dl[0]['event_name']
+                    }
+    
+                d = {}
+                for f in custom_fields:
+                    d[f] = ''
+
+                dr.update(d)
+                dl = [dr]
 
     return dl
 
