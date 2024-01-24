@@ -77,7 +77,6 @@ def test_connection(creds):
 
 @frappe.whitelist()
 def force_sync():
-    #frappe.msgprint(_("Sync started in the background."))
     sync()
     frappe.msgprint(_("Manual sync is complete."))
     
@@ -413,14 +412,19 @@ def get_contact_properties(email):
             if cf not in request_fields:
                 custom_fields.pop(custom_fields.index(cf))
 
-        dl = frappe.db.get_list("Request", 
-            filters={'email_address': email}, order_by='creation DESC', 
-            fields=custom_fields, 
-            limit=1 )
+        sql = """select {}
+			from `tabRequest`
+			where `tabRequest`.`email_address` = '{}' or `tabRequest`.`corporate_email` = '{}'
+			
+			 order by creation DESC
+			limit 1 offset 0
+            """.format(', '.join(f'`{f}`' for f in custom_fields), email, email)
+
+        dl = frappe.db.sql(sql, as_dict=1)
 
         if len(dl) > 0:
-            dl[0]['event'] = dl[0]['event_name']
-            dl[0].pop('event_name')
+            # dl[0]['event'] = dl[0]['event_name']
+            # dl[0].pop('event_name')
             if 'company' in dl[0]:
                 dl[0]['company_name'] = dl[0]['company']
                 dl[0].pop('company')
