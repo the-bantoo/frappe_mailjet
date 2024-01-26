@@ -393,6 +393,17 @@ def update_contact(doc, method):
         
     insert_contact(doc, method)
 
+def get_lead(email):
+    sql = """select `name`
+    from `tabLead`
+    where `email_id` = '{}' or `second_email` = '{}'
+    
+    order by `creation` DESC
+    limit 1 offset 0
+    """.format(email, email)
+
+    return frappe.db.sql(sql, as_dict=1)
+
 def get_contact_properties(email):
     """Get properties for contact to sync"""
     custom_fields = get_custom_fields()
@@ -411,10 +422,20 @@ def get_contact_properties(email):
     if settings.for_doctype == "Lead":
         key = "email_id"
         
-    dl = frappe.db.get_list(settings.for_doctype, 
-            filters={key: email}, order_by='creation DESC', 
-            fields=custom_fields, 
-            limit=1 )
+    dl = []
+    # add get lead by sql if settings.for_doctype == 'Lead', else, this
+    if settings.for_doctype == 'Lead':
+        lead = get_lead(email)
+        if lead:
+            dl = frappe.db.get_list('Lead', 
+                filters={'name': lead[0].name}, order_by='creation DESC', 
+                fields=custom_fields, 
+                limit=1 )
+    else:        
+        dl = frappe.db.get_list(settings.for_doctype, 
+                filters={key: email}, order_by='creation DESC', 
+                fields=custom_fields, 
+                limit=1 )
 
     if len(dl) < 1:
         custom_fields.pop(custom_fields.index('event'))
@@ -433,11 +454,11 @@ def get_contact_properties(email):
                 custom_fields.pop(custom_fields.index(cf))
 
         sql = """select {}
-			from `tabRequest`
-			where `tabRequest`.`email_address` = '{}' or `tabRequest`.`corporate_email` = '{}'
-			
-			 order by creation DESC
-			limit 1 offset 0
+            from `tabRequest`
+            where `tabRequest`.`email_address` = '{}' or `tabRequest`.`corporate_email` = '{}'
+            
+             order by creation DESC
+            limit 1 offset 0
             """.format(', '.join(f'`{f}`' for f in custom_fields), email, email)
 
         dl = frappe.db.sql(sql, as_dict=1)
