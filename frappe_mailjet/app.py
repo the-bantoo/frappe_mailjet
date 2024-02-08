@@ -81,17 +81,17 @@ def force_sync():
     frappe.msgprint(_("Manual sync is complete."))
     
 def sync():
-    try:
-        print('mailjet sync ------ start')        
-        connection = connect()
+    # try:
+    print('mailjet sync ------ start')        
+    connection = connect()
 
-        sync_contact_lists(connection)
-        sync_contacts(connection)
-        sync_campaigns(connection)
+    sync_contact_lists(connection)
+    sync_contacts(connection)
+    sync_campaigns(connection)
 
-        print('maijet sync ------ complete')
-    except Exception as e:
-        print(e)
+    print('maijet sync ------ complete')
+    # except Exception as e:
+    #     print(e)
 
 
 def chunked_data(data, size):
@@ -422,16 +422,20 @@ def get_contact_properties(email):
     if settings.for_doctype == "Lead":
         key = "email_id"
         
+    doctype = settings.for_doctype
+    custom_fields.append('name')
     dl = []
     # add get lead by sql if settings.for_doctype == 'Lead', else, this
     if settings.for_doctype == 'Lead':
+        doctype = 'Lead'
         lead = get_lead(email)
         if lead:
             dl = frappe.db.get_list('Lead', 
                 filters={'name': lead[0].name}, order_by='creation DESC', 
-                fields=custom_fields, 
+                fields=custom_fields,
                 limit=1 )
     else:        
+        doctype = settings.for_doctype
         dl = frappe.db.get_list(settings.for_doctype, 
                 filters={key: email}, order_by='creation DESC', 
                 fields=custom_fields, 
@@ -453,6 +457,7 @@ def get_contact_properties(email):
             if cf not in request_fields:
                 custom_fields.pop(custom_fields.index(cf))
 
+        doctype = 'Request'
         sql = """select {}
             from `tabRequest`
             where `tabRequest`.`email_address` = '{}' or `tabRequest`.`corporate_email` = '{}'
@@ -472,7 +477,7 @@ def get_contact_properties(email):
         else:
             # Adjust custom fields for 'Discount Request'
             # Note: 'Discount Request' has different fields like 'full_name', 'corporate_email'
-            discount_request_fields = ['full_name', 'company_name', 'corporate_email', 'newsletter', 'event_name']
+            discount_request_fields = ['name', 'full_name', 'company_name', 'corporate_email', 'newsletter', 'event_name']
             
 
             # Perform a new query on the "Discount Request" doctype
@@ -481,6 +486,7 @@ def get_contact_properties(email):
                                     order_by='creation DESC', 
                                     fields=discount_request_fields, 
                                     limit=1)
+            doctype = 'Discount Request'
 
             #custom_fields = [cf for cf in custom_fields if cf not in discount_request_fields]
             for f in discount_request_fields:
@@ -500,10 +506,13 @@ def get_contact_properties(email):
                     l_name = full_name[1]
 
                 dr = {
+
+                        'name': dl[0]['name'],
                         'first_name': full_name[0],
                         'last_name': l_name, 
                         'company_name': dl[0]['company_name'], 
-                        'event_name': dl[0]['event_name']
+                        'event_name': dl[0]['event_name'],
+                        'unsubscribed': 0 if dl[0]['newsletter'] == 1 else 1
                     }
     
                 d = {}
@@ -512,8 +521,66 @@ def get_contact_properties(email):
 
                 dr.update(d)
                 dl = [dr]
+            else:
+                return [
+                    {
+                        'first_name': '',
+                        'last_name': '', 
+                        'company_name': '', 
+                        'event_name': '',
+                        'unsubscribed': 0
+                    }]
 
+
+    # if lead, get tags from Lead, 
+    # if Request get tags from Request, 
+    # elif discount generate tags from Discount Request and create a joined string to assign the value to import_tags
+    # remove name field from dl so that it is not sent to MJ
+    # frappe.errprint(dl)
+    # frappe.errprint(custom_fields)
+    # frappe.errprint(doctype)
+    tags = ''
+    if doctype in ['Lead', 'Request', 'Discount Request']:
+        doc = frappe.get_doc(doctype, dl[0]['name'])
+        tags = get_doc_tag_string(doc)
+    
+    # replace import_tags value with tags value
+    [dl[0].update({'import_tags': tags})]
+
+    # remove name from dl
+    del dl[0]['name']
     return dl
+
+
+def get_doc_tag_string(doc):
+    tags = doc.get_tags()
+    if tags:
+        if len(tags) == 0 or tags[0] == '':
+            tag_string = ""
+        else:
+            tag_string = ", ".join(tags)
+    elif doc.doctype == 'Lead' and doc.event:
+        tag_string = doc.event
+    elif doc.doctype == 'Request' and doc.event_name:
+        tag_string = doc.event_name
+    elif doc.doctype == 'Discount Request' and doc.event_name:
+        tag_list = create_tags(doc)
+        tag_string = ", ".join(tags) 
+    else:
+        tag_string = ""
+    return tag_string
+
+def create_tags(doc):
+    tags = ['Discount Request', doc.event_name]
+    initials = get_initials(doc.event_name)
+    tags.append(initials)
+
+    return tags
+
+def get_initials(input_string):
+    words = input_string.split()
+    initials = [word[0].upper() for word in words]
+    return ''.join(initials)
 
 
 def get_custom_fields():
