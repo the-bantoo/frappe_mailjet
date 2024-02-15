@@ -19,6 +19,12 @@ except:
 
 from mailjet_rest import Client
 
+def daily_run():
+    update_subs()
+    update_total_subscribers()
+    force_sync()
+    frappe.errprint('Daily run complete ###############################################################################################')
+
 @frappe.whitelist()
 def update_subs():
     """updates the total_subscribers in Email Group"""
@@ -86,10 +92,10 @@ def sync():
     connection = connect()
 
     sync_contact_lists(connection)
-    sync_contacts(connection)
+    count = sync_contacts(connection)
     sync_campaigns(connection)
 
-    print('maijet sync ------ complete')
+    print('maijet sync ------ complete - count:'+ str(count))
     # except Exception as e:
     #     print(e)
 
@@ -137,16 +143,18 @@ def sync_contacts(mailjet):
         contact_list = list_result.json()['Data']
         all_contact_lists = frappe.get_all('Email Group', fields=['name', 'mailjet_id'], limit=0)
         settings = frappe.get_cached_doc("Mailjet Settings", "Mailjet Settings")
-                
+        
+        sync_count = 0
         for cl in contact_list:
             _contact_list = cl['Name']
-            # _contact_list = 'World Data Summit All'
+            # _contact_list = 'World Data Summit All' #dev
             
             contacts = frappe.db.get_all('Email Group Member', fields={'name', 'email', 'mailjet_id', 'unsubscribed'}, limit=0, filters={
                 'email_group': _contact_list #, 'name': 'EGM7208'
             })
 
             if contacts:
+                sync_count = sync_count + len(contacts) 
                 sub_data = []
                 unsub_data = []
                 not_synched = []
@@ -209,6 +217,8 @@ def sync_contacts(mailjet):
                 update_contacts_by_list(_contact_list, contactlist_id, contacts, not_synched, mailjet)
                 
                 #print_result(result)  # Uncomment if needed
+            break #dev
+        return sync_count
 
 def create_sync_error_log(not_synched, contact_list, reason, next_action, status):
     """
@@ -590,7 +600,7 @@ def get_custom_fields():
 
 
 def insert_contact(doc, method): # add seg
-    """Sync Email Group on insert in frappe"""
+    """Sync Email Group on insert hook in frappe"""
     
     mailjet = connect()
     result = {}
@@ -606,7 +616,7 @@ def insert_contact(doc, method): # add seg
 
     properties = get_contact_properties(doc.email)
     if len(properties) < 1:
-        # do not sync contacts without properties in either Lead or Request doctype
+        # do not sync contacts without properties in either Lead, Request or Discount Request doctype 
         p("No properties for d " + doc.email)
         return
     properties = properties[0]
