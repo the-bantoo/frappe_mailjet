@@ -217,7 +217,7 @@ def sync_contacts(mailjet):
                 update_contacts_by_list(_contact_list, contactlist_id, contacts, not_synched, mailjet)
                 
                 #print_result(result)  # Uncomment if needed
-            break #dev
+            # break #dev
         return sync_count
 
 def create_sync_error_log(not_synched, contact_list, reason, next_action, status):
